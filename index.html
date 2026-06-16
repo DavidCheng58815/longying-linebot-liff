@@ -206,6 +206,58 @@
   font-size: 13px;
   line-height: 1.5;
 }
+.guest-box {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed #eadff4;
+}
+
+.guest-title {
+  font-weight: bold;
+  color: #4f2b79;
+  margin-bottom: 8px;
+}
+
+.guest-input-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.guest-input-row input {
+  flex: 1;
+  padding: 11px 12px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+.guest-input-row button {
+  width: 110px;
+  font-size: 14px;
+  padding: 11px 8px;
+}
+
+.guest-list {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #555;
+}
+
+.guest-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f1edf6;
+}
+
+.guest-item button {
+  width: 80px;
+  padding: 8px 6px;
+  font-size: 13px;
+}
     .hidden {
       display: none;
 
@@ -435,48 +487,53 @@
   }
 
   function renderEvents(events) {
-    if (!events || events.length === 0) {
-      eventsContent.innerHTML = '目前沒有可顯示的活動。';
-      return;
-    }
-
-    eventsContent.innerHTML = events.map(event => {
-      const statusLabel = getEventStatusLabel(event.status);
-      const timeText = buildTimeText(event);
-      const actionHtml = buildEventActions(event);
-
-      return `
-        <div class="event-card">
-          <div class="event-title">${escapeHtml(event.event_name)}</div>
-
-          <div class="event-status">${escapeHtml(statusLabel)}</div>
-
-          <div class="event-meta">
-            日期：${escapeHtml(event.event_date || '未設定')}<br>
-            時間：${escapeHtml(timeText)}<br>
-            地點：${escapeHtml(event.location || '未設定')}<br>
-            類型：${escapeHtml(event.event_type || '未設定')}<br>
-            報名截止：${escapeHtml(event.registration_deadline || '未設定')}<br>
-            取消截止：${escapeHtml(event.cancel_deadline || '未設定')}<br>
-            目前人數：社友 ${escapeHtml(event.member_count)} 位、來賓 ${escapeHtml(event.guest_count)} 位，總計 ${escapeHtml(event.total_count)} 位
-          </div>
-
-          ${event.topic ? `<div class="mini-note">主題：${escapeHtml(event.topic)}</div>` : ''}
-          ${event.speaker ? `<div class="mini-note">講師：${escapeHtml(event.speaker)}</div>` : ''}
-          ${event.announcement_text ? `<div class="mini-note">${escapeHtml(event.announcement_text)}</div>` : ''}
-
-          <div class="my-status">
-            我的狀態：${escapeHtml(event.my_registration_status || '未回覆')}
-            ${event.my_guest_count ? `｜我的來賓：${escapeHtml(event.my_guest_count)} 位` : ''}
-          </div>
-
-          ${actionHtml}
-        </div>
-      `;
-    }).join('');
-
-    bindEventActionButtons();
+  if (!events || events.length === 0) {
+    eventsContent.innerHTML = '目前沒有可顯示的活動。';
+    return;
   }
+
+  eventsContent.innerHTML = events.map(event => {
+    const statusLabel = getEventStatusLabel(event.status);
+    const timeText = buildTimeText(event);
+    const actionHtml = buildEventActions(event);
+    const guestHtml = buildGuestManager(event);
+
+    return `
+      <div class="event-card" data-event-id="${escapeAttr(event.event_id)}">
+        <div class="event-title">${escapeHtml(event.event_name)}</div>
+
+        <div class="event-status">${escapeHtml(statusLabel)}</div>
+
+        <div class="event-meta">
+          日期：${escapeHtml(event.event_date || '未設定')}<br>
+          時間：${escapeHtml(timeText)}<br>
+          地點：${escapeHtml(event.location || '未設定')}<br>
+          類型：${escapeHtml(event.event_type || '未設定')}<br>
+          報名截止：${escapeHtml(event.registration_deadline || '未設定')}<br>
+          取消截止：${escapeHtml(event.cancel_deadline || '未設定')}<br>
+          目前人數：社友 ${escapeHtml(event.member_count)} 位、來賓 ${escapeHtml(event.guest_count)} 位，總計 ${escapeHtml(event.total_count)} 位
+        </div>
+
+        ${event.topic ? `<div class="mini-note">主題：${escapeHtml(event.topic)}</div>` : ''}
+        ${event.speaker ? `<div class="mini-note">講師：${escapeHtml(event.speaker)}</div>` : ''}
+        ${event.announcement_text ? `<div class="mini-note">${escapeHtml(event.announcement_text)}</div>` : ''}
+
+        <div class="my-status">
+          我的狀態：${escapeHtml(event.my_registration_status || '未回覆')}
+          ${event.my_guest_count ? `｜我的來賓：${escapeHtml(event.my_guest_count)} 位` : ''}
+        </div>
+
+        ${actionHtml}
+
+        ${guestHtml}
+      </div>
+    `;
+  }).join('');
+
+  bindEventActionButtons();
+  bindGuestActionButtons();
+  loadGuestsForAllVisibleEvents();
+}
 
   function buildEventActions(event) {
     const buttons = [];
@@ -517,6 +574,233 @@
 
     return `<div class="mini-note">${escapeHtml(message)}</div>`;
   }
+  function buildGuestManager(event) {
+  const guestAllowed =
+    event.guest_allowed === true ||
+    event.guest_allowed === 'TRUE' ||
+    event.guest_allowed === 'true';
+
+  if (!guestAllowed) {
+    return '';
+  }
+
+  if (!event.can_register && !event.can_cancel) {
+    return `
+      <div class="guest-box">
+        <div class="guest-title">我的來賓</div>
+        <div class="mini-note">此活動目前不可新增或異動來賓。</div>
+        <div class="guest-list" data-guest-list-event-id="${escapeAttr(event.event_id)}">
+          來賓資料載入中...
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="guest-box">
+      <div class="guest-title">我的來賓</div>
+
+      <div class="guest-input-row">
+        <input
+          type="text"
+          placeholder="輸入來賓姓名"
+          data-guest-input-event-id="${escapeAttr(event.event_id)}"
+        >
+        <button
+          class="primary add-guest-btn"
+          data-event-id="${escapeAttr(event.event_id)}">
+          新增來賓
+        </button>
+      </div>
+
+      <div class="guest-list" data-guest-list-event-id="${escapeAttr(event.event_id)}">
+        來賓資料載入中...
+      </div>
+    </div>
+  `;
+}
+
+function bindGuestActionButtons() {
+  const addButtons = eventsContent.querySelectorAll('.add-guest-btn');
+
+  addButtons.forEach(button => {
+    button.addEventListener('click', async () => {
+      const eventId = button.getAttribute('data-event-id');
+      await addGuest(eventId);
+    });
+  });
+}
+
+async function loadGuestsForAllVisibleEvents() {
+  const guestLists = eventsContent.querySelectorAll('[data-guest-list-event-id]');
+
+  for (const list of guestLists) {
+    const eventId = list.getAttribute('data-guest-list-event-id');
+    await loadGuestsForEvent(eventId);
+  }
+}
+
+async function loadGuestsForEvent(eventId) {
+  const list = eventsContent.querySelector(
+    `[data-guest-list-event-id="${cssEscape(eventId)}"]`
+  );
+
+  if (!list) return;
+
+  list.innerHTML = '來賓資料載入中...';
+
+  try {
+    const result = await callGasApi('get_my_guests', {
+      event_id: eventId
+    });
+
+    if (!result.success) {
+      throw new Error(result.message || result.error || '取得來賓資料失敗。');
+    }
+
+    renderGuestsForEvent(eventId, result.guests || []);
+
+  } catch (error) {
+    list.innerHTML =
+      '<div class="mini-note">來賓資料載入失敗：' +
+      escapeHtml(error.message) +
+      '</div>';
+    console.error(error);
+  }
+}
+
+function renderGuestsForEvent(eventId, guests) {
+  const list = eventsContent.querySelector(
+    `[data-guest-list-event-id="${cssEscape(eventId)}"]`
+  );
+
+  if (!list) return;
+
+  if (!guests || guests.length === 0) {
+    list.innerHTML = '<div class="mini-note">目前尚未登記來賓。</div>';
+    return;
+  }
+
+  list.innerHTML = guests.map(guest => {
+    return `
+      <div class="guest-item">
+        <span>${escapeHtml(guest.guest_name)}</span>
+        <button
+          class="danger cancel-guest-btn"
+          data-event-id="${escapeAttr(eventId)}"
+          data-guest-id="${escapeAttr(guest.guest_id)}"
+          data-guest-name="${escapeAttr(guest.guest_name)}">
+          取消
+        </button>
+      </div>
+    `;
+  }).join('');
+
+  const cancelButtons = list.querySelectorAll('.cancel-guest-btn');
+
+  cancelButtons.forEach(button => {
+    button.addEventListener('click', async () => {
+      const guestId = button.getAttribute('data-guest-id');
+      const guestName = button.getAttribute('data-guest-name');
+      const eventId = button.getAttribute('data-event-id');
+
+      await cancelGuest(eventId, guestId, guestName);
+    });
+  });
+}
+
+async function addGuest(eventId) {
+  const input = eventsContent.querySelector(
+    `[data-guest-input-event-id="${cssEscape(eventId)}"]`
+  );
+
+  if (!input) return;
+
+  const guestName = input.value.trim();
+
+  if (!guestName) {
+    alert('請先輸入來賓姓名。');
+    return;
+  }
+
+  const event = currentEvents.find(item => item.event_id === eventId);
+  const eventName = event ? event.event_name : eventId;
+
+  const confirmed = confirm(
+    '確定要新增來賓？\n\n' +
+    '活動：' + eventName + '\n' +
+    '來賓：' + guestName
+  );
+
+  if (!confirmed) return;
+
+  setButtonsDisabled(true);
+  showLoading('正在新增來賓...');
+
+  try {
+    const result = await callGasApi('add_guest_registration', {
+      event_id: eventId,
+      guest_name: guestName
+    });
+
+    if (!result.success) {
+      throw new Error(result.message || result.error || '新增來賓失敗。');
+    }
+
+    input.value = '';
+    alert(result.message || '已新增來賓。');
+
+    await loadMyEvents();
+
+  } catch (error) {
+    alert('新增失敗：' + error.message);
+    console.error(error);
+  } finally {
+    setButtonsDisabled(false);
+    hideLoading();
+  }
+}
+
+async function cancelGuest(eventId, guestId, guestName) {
+  const confirmed = confirm(
+    '確定要取消這位來賓？\n\n' +
+    '來賓：' + guestName
+  );
+
+  if (!confirmed) return;
+
+  setButtonsDisabled(true);
+  showLoading('正在取消來賓...');
+
+  try {
+    const result = await callGasApi('cancel_guest_registration', {
+      guest_id: guestId
+    });
+
+    if (!result.success) {
+      throw new Error(result.message || result.error || '取消來賓失敗。');
+    }
+
+    alert(result.message || '已取消來賓。');
+
+    await loadMyEvents();
+
+  } catch (error) {
+    alert('取消失敗：' + error.message);
+    console.error(error);
+  } finally {
+    setButtonsDisabled(false);
+    hideLoading();
+  }
+}
+
+function cssEscape(value) {
+  if (window.CSS && CSS.escape) {
+    return CSS.escape(value);
+  }
+
+  return String(value || '').replace(/"/g, '\\"');
+}
 
   function bindEventActionButtons() {
     const buttons = eventsContent.querySelectorAll('.event-action-btn');
