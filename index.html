@@ -3,17 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>龍穎社小幫手｜身分綁定</title>
+  <title>龍穎社小幫手｜活動報名</title>
 
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
   <style>
+    :root {
+      --primary: #6b3fa0;
+      --primary-dark: #4f2b79;
+      --bg: #f6f3ee;
+      --text: #2d2d2d;
+      --muted: #666;
+      --line: #eadff4;
+      --danger: #d64545;
+      --success: #2e9d50;
+      --warning: #e09b22;
+    }
+
     body {
       margin: 0;
       padding: 0;
       font-family: "Microsoft JhengHei", Arial, sans-serif;
-      background: #f6f3ee;
-      color: #2d2d2d;
+      background: var(--bg);
+      color: var(--text);
     }
 
     .container {
@@ -23,7 +35,7 @@
     }
 
     .card {
-      background: #ffffff;
+      background: #fff;
       border-radius: 18px;
       padding: 22px;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
@@ -32,13 +44,19 @@
     h1 {
       margin: 0 0 8px;
       font-size: 24px;
-      color: #6b3fa0;
+      color: var(--primary);
       letter-spacing: 0.5px;
+    }
+
+    h2 {
+      font-size: 18px;
+      margin: 24px 0 12px;
+      color: var(--primary-dark);
     }
 
     .subtitle {
       margin: 0 0 20px;
-      color: #666;
+      color: var(--muted);
       line-height: 1.6;
       font-size: 15px;
     }
@@ -48,24 +66,24 @@
       padding: 14px 16px;
       margin: 16px 0;
       background: #f4f1fa;
-      border-left: 5px solid #6b3fa0;
+      border-left: 5px solid var(--primary);
       line-height: 1.6;
       font-size: 15px;
     }
 
     .status-success {
       background: #eef8f0;
-      border-left-color: #2e9d50;
+      border-left-color: var(--success);
     }
 
     .status-warning {
       background: #fff7e6;
-      border-left-color: #e09b22;
+      border-left-color: var(--warning);
     }
 
     .status-error {
       background: #fff0f0;
-      border-left-color: #d64545;
+      border-left-color: var(--danger);
     }
 
     label {
@@ -74,7 +92,8 @@
       margin: 18px 0 8px;
     }
 
-    input, select {
+    input,
+    select {
       width: 100%;
       box-sizing: border-box;
       border: 1px solid #ddd;
@@ -82,19 +101,6 @@
       padding: 13px 14px;
       font-size: 16px;
       background: #fff;
-    }
-
-    .hint {
-      margin-top: 8px;
-      color: #777;
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    .button-row {
-      display: flex;
-      gap: 10px;
-      margin-top: 20px;
     }
 
     button {
@@ -107,160 +113,169 @@
       cursor: pointer;
     }
 
-    .primary {
-      background: #6b3fa0;
-      color: white;
-    }
-
-    .secondary {
-      background: #e8e1f1;
-      color: #4f2b79;
-    }
-
-    .danger {
-      background: #d64545;
-      color: white;
-    }
-
     button:disabled {
       opacity: 0.55;
       cursor: not-allowed;
     }
 
+    .primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .secondary {
+      background: #e8e1f1;
+      color: var(--primary-dark);
+    }
+
+    .danger {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .hint,
+    .mini-note,
+    .footer {
+      color: #777;
+      line-height: 1.5;
+    }
+
+    .hint {
+      margin-top: 8px;
+      font-size: 13px;
+    }
+
+    .mini-note {
+      margin-top: 10px;
+      font-size: 13px;
+    }
+
     .loading {
       text-align: center;
-      color: #666;
+      color: var(--muted);
       padding: 24px 0;
       line-height: 1.8;
     }
 
     .footer {
       margin-top: 18px;
-      color: #888;
       font-size: 12px;
       text-align: center;
-      line-height: 1.6;
     }
 
-    h2 {
-  font-size: 18px;
-  margin: 24px 0 12px;
-  color: #4f2b79;
-}
+    .events-box {
+      margin-top: 20px;
+    }
 
-.events-box {
-  margin-top: 20px;
-}
+    .event-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+      margin: 14px 0;
+      background: #fff;
+    }
 
-.event-card {
-  border: 1px solid #eadff4;
-  border-radius: 16px;
-  padding: 16px;
-  margin: 14px 0;
-  background: #fff;
-}
+    .event-title {
+      font-weight: bold;
+      font-size: 17px;
+      color: #3a2a4d;
+      margin-bottom: 8px;
+    }
 
-.event-title {
-  font-weight: bold;
-  font-size: 17px;
-  color: #3a2a4d;
-  margin-bottom: 8px;
-}
+    .event-meta {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
 
-.event-meta {
-  color: #666;
-  font-size: 14px;
-  line-height: 1.7;
-}
+    .event-status {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #f4f1fa;
+      color: var(--primary);
+      font-size: 13px;
+      margin: 8px 0;
+    }
 
-.event-status {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: #f4f1fa;
-  color: #6b3fa0;
-  font-size: 13px;
-  margin: 8px 0;
-}
+    .my-status {
+      margin-top: 8px;
+      font-weight: bold;
+      color: #333;
+    }
 
-.my-status {
-  margin-top: 8px;
-  font-weight: bold;
-  color: #333;
-}
+    .event-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
 
-.event-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-}
+    .event-actions button {
+      padding: 11px 8px;
+      font-size: 14px;
+    }
 
-.event-actions button {
-  padding: 11px 8px;
-  font-size: 14px;
-}
+    .guest-box {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px dashed var(--line);
+    }
 
-.mini-note {
-  margin-top: 10px;
-  color: #777;
-  font-size: 13px;
-  line-height: 1.5;
-}
-.guest-box {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px dashed #eadff4;
-}
+    .guest-title {
+      font-weight: bold;
+      color: var(--primary-dark);
+      margin-bottom: 8px;
+    }
 
-.guest-title {
-  font-weight: bold;
-  color: #4f2b79;
-  margin-bottom: 8px;
-}
+    .guest-input-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
 
-.guest-input-row {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
+    .guest-input-row input {
+      flex: 1;
+      padding: 11px 12px;
+      font-size: 14px;
+    }
 
-.guest-input-row input {
-  flex: 1;
-  padding: 11px 12px;
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  font-size: 14px;
-}
+    .guest-input-row button {
+      width: 110px;
+      flex: none;
+      padding: 11px 8px;
+      font-size: 14px;
+    }
 
-.guest-input-row button {
-  width: 110px;
-  font-size: 14px;
-  padding: 11px 8px;
-}
+    .guest-list {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #555;
+    }
 
-.guest-list {
-  margin-top: 10px;
-  font-size: 14px;
-  color: #555;
-}
+    .guest-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid #f1edf6;
+    }
 
-.guest-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 0;
-  border-bottom: 1px solid #f1edf6;
-}
+    .guest-item button {
+      width: 80px;
+      flex: none;
+      padding: 8px 6px;
+      font-size: 13px;
+    }
 
-.guest-item button {
-  width: 80px;
-  padding: 8px 6px;
-  font-size: 13px;
-}
     .hidden {
       display: none;
-
     }
   </style>
 </head>
@@ -273,10 +288,7 @@
         請完成社友身分綁定。綁定申請送出後，需由執秘審核通過，才能使用活動報名、取消與來賓登記功能。
       </p>
 
-      <div id="loading" class="loading">
-        系統載入中，請稍候...
-      </div>
-
+      <div id="loading" class="loading">系統載入中，請稍候...</div>
       <div id="statusBox" class="status-box hidden"></div>
 
       <div id="bindForm" class="hidden">
@@ -304,752 +316,651 @@
       </div>
 
       <div id="eventsBox" class="events-box hidden">
-         <h2>活動列表</h2>
-          <div id="eventsContent" class="mini-note">
-             活動資料載入中...
-          </div>
+        <h2>活動列表</h2>
+        <div id="eventsContent" class="mini-note">活動資料載入中...</div>
       </div>
 
-<div id="reloadBox" class="button-row hidden">
-  <button id="reloadBtn" class="secondary">重新整理狀態</button>
-</div>
+      <div id="reloadBox" class="button-row hidden">
+        <button id="reloadBtn" class="secondary">重新整理狀態</button>
+      </div>
 
-    <div class="footer">
-      龍穎社活動報名與來賓管理系統｜第一版測試
+      <div class="footer">
+        龍穎社活動報名與來賓管理系統｜第一版測試
+      </div>
     </div>
   </div>
 
   <script>
-  const CONFIG = {
-    LIFF_ID: '2010401579-60qfBgC0',
-    GAS_API_URL: 'https://script.google.com/macros/s/AKfycbwZ-0XcZmi7xy6K1VMgMzXpi6s_XNAGGf_Yjml97nyKZaJufQYfpPeP6PlLxIyYPRojHw/exec'
-  };
+    const CONFIG = {
+      LIFF_ID: '2010401579-60qfBgC0',
+      GAS_API_URL: 'https://script.google.com/macros/s/AKfycbwZ-0XcZmi7xy6K1VMgMzXpi6s_XNAGGf_Yjml97nyKZaJufQYfpPeP6PlLxIyYPRojHw/exec'
+    };
 
-  let allMembers = [];
-  let currentProfile = null;
-  let currentBindingStatus = null;
-  let currentEvents = [];
+    const state = {
+      members: [],
+      profile: null,
+      bindingStatus: null,
+      events: []
+    };
 
-  const loading = document.getElementById('loading');
-  const statusBox = document.getElementById('statusBox');
-  const bindForm = document.getElementById('bindForm');
-  const pendingBox = document.getElementById('pendingBox');
-  const eventsBox = document.getElementById('eventsBox');
-  const eventsContent = document.getElementById('eventsContent');
-  const reloadBox = document.getElementById('reloadBox');
+    const els = {};
 
-  const searchInput = document.getElementById('searchInput');
-  const memberSelect = document.getElementById('memberSelect');
-  const submitBtn = document.getElementById('submitBtn');
-  const cancelBtn = document.getElementById('cancelBtn');
-  const reloadBtn = document.getElementById('reloadBtn');
+    window.addEventListener('load', init);
 
-  window.addEventListener('load', main);
-  searchInput.addEventListener('input', renderMemberOptions);
-  submitBtn.addEventListener('click', submitBindingRequest);
-  cancelBtn.addEventListener('click', cancelBindingRequest);
-  reloadBtn.addEventListener('click', main);
+    function init() {
+      cacheElements();
+      bindStaticEvents();
+      main();
+    }
 
-  async function main() {
-    resetView();
-    showLoading('系統載入中，請稍候...');
+    function cacheElements() {
+      [
+        'loading',
+        'statusBox',
+        'bindForm',
+        'pendingBox',
+        'eventsBox',
+        'eventsContent',
+        'reloadBox',
+        'searchInput',
+        'memberSelect',
+        'submitBtn',
+        'cancelBtn',
+        'reloadBtn'
+      ].forEach(id => {
+        els[id] = document.getElementById(id);
+      });
+    }
 
-    try {
-      if (!CONFIG.LIFF_ID) {
-        throw new Error('尚未設定 LIFF_ID。');
+    function bindStaticEvents() {
+      els.searchInput.addEventListener('input', renderMemberOptions);
+      els.submitBtn.addEventListener('click', submitBindingRequest);
+      els.cancelBtn.addEventListener('click', cancelBindingRequest);
+      els.reloadBtn.addEventListener('click', main);
+    }
+
+    async function main() {
+      resetView();
+      showLoading('系統載入中，請稍候...');
+
+      try {
+        if (!CONFIG.LIFF_ID) throw new Error('尚未設定 LIFF_ID。');
+        if (!CONFIG.GAS_API_URL) throw new Error('尚未設定 GAS_API_URL。');
+
+        await liff.init({ liffId: CONFIG.LIFF_ID });
+
+        if (!liff.isLoggedIn()) {
+          liff.login({ redirectUri: window.location.href });
+          return;
+        }
+
+        state.profile = await liff.getProfile();
+
+        const result = await callGasApi('get_members', {});
+        if (!result.success) {
+          throw new Error(result.message || result.error || '取得社友名單失敗。');
+        }
+
+        state.members = result.members || [];
+        state.bindingStatus = result.bindingStatus || { status: 'none' };
+
+        renderByBindingStatus();
+
+      } catch (error) {
+        showStatus('系統錯誤：' + error.message, 'error');
+        console.error(error);
+      } finally {
+        hideLoading();
       }
+    }
 
-      if (!CONFIG.GAS_API_URL) {
-        throw new Error('尚未設定 GAS_API_URL。');
-      }
+    function renderByBindingStatus() {
+      hide(els.bindForm, els.pendingBox, els.eventsBox);
+      show(els.reloadBox);
 
-      await liff.init({ liffId: CONFIG.LIFF_ID });
+      const status = state.bindingStatus.status;
 
-      if (!liff.isLoggedIn()) {
-        liff.login({ redirectUri: window.location.href });
+      if (status === 'active') {
+        showStatus(
+          '已完成身分綁定<br>' +
+          '社友：' + escapeHtml(state.bindingStatus.member_name || '') + '<br>' +
+          '您已可以使用活動報名、取消與來賓登記功能。',
+          'success'
+        );
+        show(els.eventsBox);
+        loadMyEvents();
         return;
       }
 
-      currentProfile = await liff.getProfile();
-
-      const result = await callGasApi('get_members', {});
-      if (!result.success) {
-        throw new Error(result.error || '取得社友名單失敗。');
+      if (status === 'pending') {
+        showStatus(
+          '已有身分綁定申請待審核<br>' +
+          '申請社友：' + escapeHtml(state.bindingStatus.requested_member_name || '') + '<br>' +
+          '請等待執秘審核。若選錯姓名，可取消後重新選擇。',
+          'warning'
+        );
+        show(els.pendingBox);
+        return;
       }
 
-      allMembers = result.members || [];
-      currentBindingStatus = result.bindingStatus;
-
-      renderByBindingStatus();
-
-    } catch (error) {
-      showStatus('系統錯誤：' + error.message, 'error');
-      console.error(error);
-    } finally {
-      hideLoading();
-    }
-  }
-
-  function renderByBindingStatus() {
-    bindForm.classList.add('hidden');
-    pendingBox.classList.add('hidden');
-    eventsBox.classList.add('hidden');
-    reloadBox.classList.remove('hidden');
-
-    const status = currentBindingStatus && currentBindingStatus.status;
-
-    if (status === 'active') {
       showStatus(
-        '已完成身分綁定<br>' +
-        '社友：' + escapeHtml(currentBindingStatus.member_name || '') + '<br>' +
-        '您已可以使用活動報名、取消與來賓登記功能。',
-        'success'
+        '目前尚未完成身分綁定。<br>' +
+        'LINE 顯示名稱：' + escapeHtml(state.profile.displayName || '') + '<br>' +
+        '請選擇您的社友姓名後送出申請。',
+        'normal'
       );
 
-      eventsBox.classList.remove('hidden');
-      loadMyEvents();
-      return;
+      show(els.bindForm);
+      renderMemberOptions();
     }
 
-    if (status === 'pending') {
-      showStatus(
-        '已有身分綁定申請待審核<br>' +
-        '申請社友：' + escapeHtml(currentBindingStatus.requested_member_name || '') + '<br>' +
-        '請等待執秘審核。若選錯姓名，可取消後重新選擇。',
-        'warning'
-      );
-      pendingBox.classList.remove('hidden');
-      return;
-    }
+    function renderMemberOptions() {
+      const keyword = normalize(els.searchInput.value);
 
-    showStatus(
-      '目前尚未完成身分綁定。<br>' +
-      'LINE 顯示名稱：' + escapeHtml(currentProfile.displayName || '') + '<br>' +
-      '請選擇您的社友姓名後送出申請。',
-      'normal'
-    );
-
-    bindForm.classList.remove('hidden');
-    renderMemberOptions();
-  }
-
-  function renderMemberOptions() {
-    const keyword = normalize(searchInput.value);
-    const filtered = allMembers.filter(member => {
-      const text = normalize(
-        [
+      const filtered = state.members.filter(member => {
+        const text = normalize([
           member.member_name,
           member.nickname,
           member.display_name_for_liff,
           member.member_no
-        ].join(' ')
-      );
-      return !keyword || text.includes(keyword);
-    });
+        ].join(' '));
 
-    memberSelect.innerHTML = '';
+        return !keyword || text.includes(keyword);
+      });
 
-    const defaultOption = document.createElement('option');
-    defaultOption.value = '';
-    defaultOption.textContent = filtered.length
-      ? '請選擇社友'
-      : '查無符合社友，請重新搜尋';
-    memberSelect.appendChild(defaultOption);
+      els.memberSelect.innerHTML = '';
 
-    filtered.forEach(member => {
-      const option = document.createElement('option');
-      option.value = member.member_id;
-      option.textContent = member.display_name_for_liff;
-      memberSelect.appendChild(option);
-    });
-  }
+      const defaultOption = document.createElement('option');
+      defaultOption.value = '';
+      defaultOption.textContent = filtered.length ? '請選擇社友' : '查無符合社友，請重新搜尋';
+      els.memberSelect.appendChild(defaultOption);
 
-  async function loadMyEvents() {
-    eventsContent.innerHTML = '活動資料載入中...';
+      filtered.forEach(member => {
+        const option = document.createElement('option');
+        option.value = member.member_id;
+        option.textContent = member.display_name_for_liff;
+        els.memberSelect.appendChild(option);
+      });
+    }
 
-    try {
-      const result = await callGasApi('get_my_events', {});
+    async function submitBindingRequest() {
+      const memberId = els.memberSelect.value;
 
-      if (!result.success) {
-        throw new Error(result.message || result.error || '取得活動資料失敗。');
+      if (!memberId) {
+        alert('請先選擇您的社友姓名。');
+        return;
       }
 
-      currentEvents = result.events || [];
-      renderEvents(currentEvents);
+      const selectedMember = state.members.find(member => member.member_id === memberId);
+      const name = selectedMember ? selectedMember.display_name_for_liff : memberId;
 
-    } catch (error) {
-      eventsContent.innerHTML =
-        '<div class="status-box status-error">活動資料載入失敗：' +
-        escapeHtml(error.message) +
-        '</div>';
-      console.error(error);
+      const confirmed = confirm(
+        '請確認是否送出綁定申請：\n\n' +
+        name + '\n\n' +
+        '送出後需等待執秘審核。'
+      );
+
+      if (!confirmed) return;
+
+      await runAction('正在送出申請...', async () => {
+        const result = await callGasApi('submit_binding_request', { member_id: memberId });
+        if (!result.success) throw new Error(result.message || result.error || '送出申請失敗。');
+
+        alert(result.message || '已送出身分綁定申請。');
+        await main();
+      });
     }
-  }
 
-  function renderEvents(events) {
-  if (!events || events.length === 0) {
-    eventsContent.innerHTML = '目前沒有可顯示的活動。';
-    return;
-  }
+    async function cancelBindingRequest() {
+      const confirmed = confirm(
+        '確定要取消目前待審核的綁定申請嗎？\n\n取消後可以重新選擇社友姓名。'
+      );
 
-  eventsContent.innerHTML = events.map(event => {
-    const statusLabel = getEventStatusLabel(event.status);
-    const timeText = buildTimeText(event);
-    const actionHtml = buildEventActions(event);
-    const guestHtml = buildGuestManager(event);
+      if (!confirmed) return;
 
-    return `
-      <div class="event-card" data-event-id="${escapeAttr(event.event_id)}">
-        <div class="event-title">${escapeHtml(event.event_name)}</div>
+      await runAction('正在取消申請...', async () => {
+        const result = await callGasApi('cancel_binding_request', {});
+        if (!result.success) throw new Error(result.message || result.error || '取消申請失敗。');
 
-        <div class="event-status">${escapeHtml(statusLabel)}</div>
+        alert(result.message || '已取消申請。');
+        await main();
+      });
+    }
 
-        <div class="event-meta">
-          日期：${escapeHtml(event.event_date || '未設定')}<br>
-          時間：${escapeHtml(timeText)}<br>
-          地點：${escapeHtml(event.location || '未設定')}<br>
-          類型：${escapeHtml(event.event_type || '未設定')}<br>
-          報名截止：${escapeHtml(event.registration_deadline || '未設定')}<br>
-          取消截止：${escapeHtml(event.cancel_deadline || '未設定')}<br>
-          目前人數：社友 ${escapeHtml(event.member_count)} 位、來賓 ${escapeHtml(event.guest_count)} 位，總計 ${escapeHtml(event.total_count)} 位
-        </div>
+    async function loadMyEvents() {
+      els.eventsContent.innerHTML = '活動資料載入中...';
 
-        ${event.topic ? `<div class="mini-note">主題：${escapeHtml(event.topic)}</div>` : ''}
-        ${event.speaker ? `<div class="mini-note">講師：${escapeHtml(event.speaker)}</div>` : ''}
-        ${event.announcement_text ? `<div class="mini-note">${escapeHtml(event.announcement_text)}</div>` : ''}
+      try {
+        const result = await callGasApi('get_my_events', {});
+        if (!result.success) throw new Error(result.message || result.error || '取得活動資料失敗。');
 
-        <div class="my-status">
-          我的狀態：${escapeHtml(event.my_registration_status || '未回覆')}
-          ${event.my_guest_count ? `｜我的來賓：${escapeHtml(event.my_guest_count)} 位` : ''}
-        </div>
+        state.events = result.events || [];
+        renderEvents();
 
-        ${actionHtml}
+      } catch (error) {
+        els.eventsContent.innerHTML =
+          '<div class="status-box status-error">活動資料載入失敗：' +
+          escapeHtml(error.message) +
+          '</div>';
+        console.error(error);
+      }
+    }
 
-        ${guestHtml}
-      </div>
-    `;
-  }).join('');
+    function renderEvents() {
+      if (!state.events.length) {
+        els.eventsContent.innerHTML = '目前沒有可顯示的活動。';
+        return;
+      }
 
-  bindEventActionButtons();
-  bindGuestActionButtons();
-  loadGuestsForAllVisibleEvents();
-}
+      els.eventsContent.innerHTML = state.events.map(event => {
+        return `
+          <div class="event-card" data-event-id="${escapeAttr(event.event_id)}">
+            <div class="event-title">${escapeHtml(event.event_name)}</div>
+            <div class="event-status">${escapeHtml(getEventStatusLabel(event.status))}</div>
 
- function buildEventActions(event) {
-  const buttons = [];
-  const myStatus = event.my_registration_status || '未回覆';
+            <div class="event-meta">
+              日期：${escapeHtml(event.event_date || '未設定')}<br>
+              時間：${escapeHtml(buildTimeText(event))}<br>
+              地點：${escapeHtml(event.location || '未設定')}<br>
+              類型：${escapeHtml(event.event_type || '未設定')}<br>
+              報名截止：${escapeHtml(event.registration_deadline || '未設定')}<br>
+              取消截止：${escapeHtml(event.cancel_deadline || '未設定')}<br>
+              目前人數：社友 ${escapeHtml(event.member_count)} 位、來賓 ${escapeHtml(event.guest_count)} 位，總計 ${escapeHtml(event.total_count)} 位
+            </div>
 
-  // 已參加的人，只能取消報名，不再顯示「不參加」
-  if (myStatus === '參加') {
-    if (event.can_cancel) {
-      buttons.push(`
-        <button class="danger event-action-btn"
+            ${event.topic ? `<div class="mini-note">主題：${escapeHtml(event.topic)}</div>` : ''}
+            ${event.speaker ? `<div class="mini-note">講師：${escapeHtml(event.speaker)}</div>` : ''}
+            ${event.announcement_text ? `<div class="mini-note">${escapeHtml(event.announcement_text)}</div>` : ''}
+
+            <div class="my-status">
+              我的狀態：${escapeHtml(event.my_registration_status || '未回覆')}
+              ${Number(event.my_guest_count) ? `｜我的來賓：${escapeHtml(event.my_guest_count)} 位` : ''}
+            </div>
+
+            ${buildEventActions(event)}
+            ${buildGuestManager(event)}
+          </div>
+        `;
+      }).join('');
+
+      bindEventButtons();
+      bindGuestButtons();
+      loadGuestsForAllEvents();
+    }
+
+    function buildEventActions(event) {
+      const status = event.my_registration_status || '未回覆';
+
+      if (status === '參加') {
+        if (event.can_cancel) {
+          return `
+            <div class="event-actions">
+              <button class="danger event-action-btn"
+                data-event-id="${escapeAttr(event.event_id)}"
+                data-status="已取消">
+                取消報名
+              </button>
+            </div>
+          `;
+        }
+
+        return '<div class="mini-note">您已報名此活動，且已超過取消期限。若需異動請聯繫執秘。</div>';
+      }
+
+      if (!event.can_register) {
+        return `<div class="mini-note">${escapeHtml(event.register_message || '此活動目前不可操作。')}</div>`;
+      }
+
+      const buttons = [
+        `
+        <button class="primary event-action-btn"
           data-event-id="${escapeAttr(event.event_id)}"
-          data-status="已取消">
-          取消報名
+          data-status="參加">
+          參加
         </button>
-      `);
+        `
+      ];
+
+      if (status !== '不參加') {
+        buttons.push(`
+          <button class="secondary event-action-btn"
+            data-event-id="${escapeAttr(event.event_id)}"
+            data-status="不參加">
+            不參加
+          </button>
+        `);
+      }
 
       return `<div class="event-actions">${buttons.join('')}</div>`;
     }
 
-    return `
-      <div class="mini-note">
-        您已報名此活動，且已超過取消期限。若需異動請聯繫執秘。
-      </div>
-    `;
-  }
-
-  // 未回覆、不參加、已取消的人，在報名期限內可以重新選擇
-  if (event.can_register) {
-    buttons.push(`
-      <button class="primary event-action-btn"
-        data-event-id="${escapeAttr(event.event_id)}"
-        data-status="參加">
-        參加
-      </button>
-    `);
-
-    if (myStatus !== '不參加') {
-      buttons.push(`
-        <button class="secondary event-action-btn"
-          data-event-id="${escapeAttr(event.event_id)}"
-          data-status="不參加">
-          不參加
-        </button>
-      `);
+    function bindEventButtons() {
+      els.eventsContent.querySelectorAll('.event-action-btn').forEach(button => {
+        button.addEventListener('click', async () => {
+          await submitMemberRegistration(
+            button.getAttribute('data-event-id'),
+            button.getAttribute('data-status')
+          );
+        });
+      });
     }
 
-    return `<div class="event-actions">${buttons.join('')}</div>`;
-  }
+    async function submitMemberRegistration(eventId, status) {
+      const event = findEvent(eventId);
+      const eventName = event ? event.event_name : eventId;
 
-  const message = event.register_message || event.cancel_message || '此活動目前不可操作。';
+      const confirmed = confirm(
+        status === '已取消'
+          ? '確定要取消報名？\n\n活動：' + eventName
+          : '確定要送出活動狀態？\n\n活動：' + eventName + '\n狀態：' + status
+      );
 
-  return `<div class="mini-note">${escapeHtml(message)}</div>`;
-}
-  function buildGuestManager(event) {
-  const guestAllowed =
-    event.guest_allowed === true ||
-    event.guest_allowed === 'TRUE' ||
-    event.guest_allowed === 'true';
+      if (!confirmed) return;
 
-  if (!guestAllowed) {
-    return '';
-  }
+      await runAction('正在更新活動狀態...', async () => {
+        const result = await callGasApi('submit_member_registration', { event_id: eventId, status });
+        if (!result.success) throw new Error(result.message || result.error || '更新失敗。');
 
-  if (!event.can_register && !event.can_cancel) {
-    return `
-      <div class="guest-box">
-        <div class="guest-title">我的來賓</div>
-        <div class="mini-note">此活動目前不可新增或異動來賓。</div>
-        <div class="guest-list" data-guest-list-event-id="${escapeAttr(event.event_id)}">
-          來賓資料載入中...
+        alert(result.message || '已更新活動狀態。');
+        await loadMyEvents();
+      });
+    }
+
+    function buildGuestManager(event) {
+      if (!isTrue(event.guest_allowed)) return '';
+
+      const canAddGuest = event.can_add_guest ?? event.can_register;
+      const canCancelGuest = event.can_cancel_guest ?? event.can_cancel;
+
+      const inputHtml = canAddGuest
+        ? `
+          <div class="guest-input-row">
+            <input type="text"
+              placeholder="輸入來賓姓名"
+              data-guest-input-event-id="${escapeAttr(event.event_id)}">
+            <button class="primary add-guest-btn"
+              data-event-id="${escapeAttr(event.event_id)}">
+              新增來賓
+            </button>
+          </div>
+        `
+        : `<div class="mini-note">${escapeHtml(event.add_guest_message || '此活動目前不可新增來賓。')}</div>`;
+
+      const cancelNote = canCancelGuest
+        ? ''
+        : '<div class="mini-note">目前已超過來賓取消期限，如需異動請聯繫執秘。</div>';
+
+      return `
+        <div class="guest-box"
+          data-can-cancel-guest="${canCancelGuest ? 'true' : 'false'}"
+          data-guest-event-id="${escapeAttr(event.event_id)}">
+          <div class="guest-title">我的來賓</div>
+          ${inputHtml}
+          ${cancelNote}
+          <div class="guest-list" data-guest-list-event-id="${escapeAttr(event.event_id)}">
+            來賓資料載入中...
+          </div>
         </div>
-      </div>
-    `;
-  }
-
-  return `
-    <div class="guest-box">
-      <div class="guest-title">我的來賓</div>
-
-      <div class="guest-input-row">
-        <input
-          type="text"
-          placeholder="輸入來賓姓名"
-          data-guest-input-event-id="${escapeAttr(event.event_id)}"
-        >
-        <button
-          class="primary add-guest-btn"
-          data-event-id="${escapeAttr(event.event_id)}">
-          新增來賓
-        </button>
-      </div>
-
-      <div class="guest-list" data-guest-list-event-id="${escapeAttr(event.event_id)}">
-        來賓資料載入中...
-      </div>
-    </div>
-  `;
-}
-
-function bindGuestActionButtons() {
-  const addButtons = eventsContent.querySelectorAll('.add-guest-btn');
-
-  addButtons.forEach(button => {
-    button.addEventListener('click', async () => {
-      const eventId = button.getAttribute('data-event-id');
-      await addGuest(eventId);
-    });
-  });
-}
-
-async function loadGuestsForAllVisibleEvents() {
-  const guestLists = eventsContent.querySelectorAll('[data-guest-list-event-id]');
-
-  for (const list of guestLists) {
-    const eventId = list.getAttribute('data-guest-list-event-id');
-    await loadGuestsForEvent(eventId);
-  }
-}
-
-async function loadGuestsForEvent(eventId) {
-  const list = eventsContent.querySelector(
-    `[data-guest-list-event-id="${cssEscape(eventId)}"]`
-  );
-
-  if (!list) return;
-
-  list.innerHTML = '來賓資料載入中...';
-
-  try {
-    const result = await callGasApi('get_my_guests', {
-      event_id: eventId
-    });
-
-    if (!result.success) {
-      throw new Error(result.message || result.error || '取得來賓資料失敗。');
+      `;
     }
 
-    renderGuestsForEvent(eventId, result.guests || []);
-
-  } catch (error) {
-    list.innerHTML =
-      '<div class="mini-note">來賓資料載入失敗：' +
-      escapeHtml(error.message) +
-      '</div>';
-    console.error(error);
-  }
-}
-
-function renderGuestsForEvent(eventId, guests) {
-  const list = eventsContent.querySelector(
-    `[data-guest-list-event-id="${cssEscape(eventId)}"]`
-  );
-
-  if (!list) return;
-
-  if (!guests || guests.length === 0) {
-    list.innerHTML = '<div class="mini-note">目前尚未登記來賓。</div>';
-    return;
-  }
-
-  list.innerHTML = guests.map(guest => {
-    return `
-      <div class="guest-item">
-        <span>${escapeHtml(guest.guest_name)}</span>
-        <button
-          class="danger cancel-guest-btn"
-          data-event-id="${escapeAttr(eventId)}"
-          data-guest-id="${escapeAttr(guest.guest_id)}"
-          data-guest-name="${escapeAttr(guest.guest_name)}">
-          取消
-        </button>
-      </div>
-    `;
-  }).join('');
-
-  const cancelButtons = list.querySelectorAll('.cancel-guest-btn');
-
-  cancelButtons.forEach(button => {
-    button.addEventListener('click', async () => {
-      const guestId = button.getAttribute('data-guest-id');
-      const guestName = button.getAttribute('data-guest-name');
-      const eventId = button.getAttribute('data-event-id');
-
-      await cancelGuest(eventId, guestId, guestName);
-    });
-  });
-}
-
-async function addGuest(eventId) {
-  const input = eventsContent.querySelector(
-    `[data-guest-input-event-id="${cssEscape(eventId)}"]`
-  );
-
-  if (!input) return;
-
-  const guestName = input.value.trim();
-
-  if (!guestName) {
-    alert('請先輸入來賓姓名。');
-    return;
-  }
-
-  const event = currentEvents.find(item => item.event_id === eventId);
-  const eventName = event ? event.event_name : eventId;
-
-  const confirmed = confirm(
-    '確定要新增來賓？\n\n' +
-    '活動：' + eventName + '\n' +
-    '來賓：' + guestName
-  );
-
-  if (!confirmed) return;
-
-  setButtonsDisabled(true);
-  showLoading('正在新增來賓...');
-
-  try {
-    const result = await callGasApi('add_guest_registration', {
-      event_id: eventId,
-      guest_name: guestName
-    });
-
-    if (!result.success) {
-      throw new Error(result.message || result.error || '新增來賓失敗。');
-    }
-
-    input.value = '';
-    alert(result.message || '已新增來賓。');
-
-    await loadMyEvents();
-
-  } catch (error) {
-    alert('新增失敗：' + error.message);
-    console.error(error);
-  } finally {
-    setButtonsDisabled(false);
-    hideLoading();
-  }
-}
-
-async function cancelGuest(eventId, guestId, guestName) {
-  const confirmed = confirm(
-    '確定要取消這位來賓？\n\n' +
-    '來賓：' + guestName
-  );
-
-  if (!confirmed) return;
-
-  setButtonsDisabled(true);
-  showLoading('正在取消來賓...');
-
-  try {
-    const result = await callGasApi('cancel_guest_registration', {
-      guest_id: guestId
-    });
-
-    if (!result.success) {
-      throw new Error(result.message || result.error || '取消來賓失敗。');
-    }
-
-    alert(result.message || '已取消來賓。');
-
-    await loadMyEvents();
-
-  } catch (error) {
-    alert('取消失敗：' + error.message);
-    console.error(error);
-  } finally {
-    setButtonsDisabled(false);
-    hideLoading();
-  }
-}
-
-function cssEscape(value) {
-  if (window.CSS && CSS.escape) {
-    return CSS.escape(value);
-  }
-
-  return String(value || '').replace(/"/g, '\\"');
-}
-
-  function bindEventActionButtons() {
-    const buttons = eventsContent.querySelectorAll('.event-action-btn');
-
-    buttons.forEach(button => {
-      button.addEventListener('click', async () => {
-        const eventId = button.getAttribute('data-event-id');
-        const status = button.getAttribute('data-status');
-
-        await submitMemberRegistration(eventId, status);
+    function bindGuestButtons() {
+      els.eventsContent.querySelectorAll('.add-guest-btn').forEach(button => {
+        button.addEventListener('click', async () => {
+          await addGuest(button.getAttribute('data-event-id'));
+        });
       });
-    });
-  }
+    }
 
-  async function submitMemberRegistration(eventId, status) {
-    const event = currentEvents.find(item => item.event_id === eventId);
-    const eventName = event ? event.event_name : eventId;
+    async function loadGuestsForAllEvents() {
+      const lists = els.eventsContent.querySelectorAll('[data-guest-list-event-id]');
 
-    const message =
-      status === '已取消'
-        ? '確定要取消報名？\n\n活動：' + eventName
-        : '確定要送出活動狀態？\n\n活動：' + eventName + '\n狀態：' + status;
+      for (const list of lists) {
+        await loadGuestsForEvent(list.getAttribute('data-guest-list-event-id'));
+      }
+    }
 
-    const confirmed = confirm(message);
-    if (!confirmed) return;
+    async function loadGuestsForEvent(eventId) {
+      const list = queryByData('guest-list-event-id', eventId);
+      if (!list) return;
 
-    setButtonsDisabled(true);
-    showLoading('正在更新活動狀態...');
+      list.innerHTML = '來賓資料載入中...';
 
-    try {
-      const result = await callGasApi('submit_member_registration', {
-        event_id: eventId,
-        status: status
-      });
+      try {
+        const result = await callGasApi('get_my_guests', { event_id: eventId });
+        if (!result.success) throw new Error(result.message || result.error || '取得來賓資料失敗。');
 
-      if (!result.success) {
-        throw new Error(result.message || result.error || '更新失敗。');
+        renderGuests(eventId, result.guests || []);
+
+      } catch (error) {
+        list.innerHTML = '<div class="mini-note">來賓資料載入失敗：' + escapeHtml(error.message) + '</div>';
+        console.error(error);
+      }
+    }
+
+    function renderGuests(eventId, guests) {
+      const list = queryByData('guest-list-event-id', eventId);
+      if (!list) return;
+
+      if (!guests.length) {
+        list.innerHTML = '<div class="mini-note">目前尚未登記來賓。</div>';
+        return;
       }
 
-      alert(result.message || '已更新活動狀態。');
-      await loadMyEvents();
+      const event = findEvent(eventId);
+      const canCancelGuest = Boolean(event && (event.can_cancel_guest ?? event.can_cancel));
 
-    } catch (error) {
-      alert('更新失敗：' + error.message);
-      console.error(error);
-    } finally {
-      setButtonsDisabled(false);
-      hideLoading();
+      list.innerHTML = guests.map(guest => {
+        const cancelButton = canCancelGuest
+          ? `
+            <button class="danger cancel-guest-btn"
+              data-event-id="${escapeAttr(eventId)}"
+              data-guest-id="${escapeAttr(guest.guest_id)}"
+              data-guest-name="${escapeAttr(guest.guest_name)}">
+              取消
+            </button>
+          `
+          : '';
+
+        return `
+          <div class="guest-item">
+            <span>${escapeHtml(guest.guest_name)}</span>
+            ${cancelButton}
+          </div>
+        `;
+      }).join('');
+
+      list.querySelectorAll('.cancel-guest-btn').forEach(button => {
+        button.addEventListener('click', async () => {
+          await cancelGuest(
+            button.getAttribute('data-event-id'),
+            button.getAttribute('data-guest-id'),
+            button.getAttribute('data-guest-name')
+          );
+        });
+      });
     }
-  }
 
-  async function submitBindingRequest() {
-    const memberId = memberSelect.value;
+    async function addGuest(eventId) {
+      const input = queryByData('guest-input-event-id', eventId);
+      if (!input) return;
 
-    if (!memberId) {
-      alert('請先選擇您的社友姓名。');
-      return;
+      const guestName = input.value.trim();
+      if (!guestName) {
+        alert('請先輸入來賓姓名。');
+        return;
+      }
+
+      const event = findEvent(eventId);
+      const eventName = event ? event.event_name : eventId;
+
+      const confirmed = confirm(
+        '確定要新增來賓？\n\n' +
+        '活動：' + eventName + '\n' +
+        '來賓：' + guestName
+      );
+
+      if (!confirmed) return;
+
+      await runAction('正在新增來賓...', async () => {
+        const result = await callGasApi('add_guest_registration', { event_id: eventId, guest_name: guestName });
+        if (!result.success) throw new Error(result.message || result.error || '新增來賓失敗。');
+
+        alert(result.message || '已新增來賓。');
+        await loadMyEvents();
+      });
     }
 
-    const selectedMember = allMembers.find(member => member.member_id === memberId);
-    const name = selectedMember ? selectedMember.display_name_for_liff : memberId;
+    async function cancelGuest(eventId, guestId, guestName) {
+      const confirmed = confirm('確定要取消這位來賓？\n\n來賓：' + guestName);
+      if (!confirmed) return;
 
-    const confirmed = confirm(
-      '請確認是否送出綁定申請：\n\n' +
-      name + '\n\n' +
-      '送出後需等待執秘審核。'
-    );
+      await runAction('正在取消來賓...', async () => {
+        const result = await callGasApi('cancel_guest_registration', { guest_id: guestId });
+        if (!result.success) throw new Error(result.message || result.error || '取消來賓失敗。');
 
-    if (!confirmed) return;
+        alert(result.message || '已取消來賓。');
+        await loadMyEvents();
+      });
+    }
 
-    setButtonsDisabled(true);
-    showLoading('正在送出申請...');
+    async function callGasApi(action, payload) {
+      const accessToken = liff.getAccessToken();
 
-    try {
-      const result = await callGasApi('submit_binding_request', {
-        member_id: memberId
+      if (!accessToken) {
+        throw new Error('無法取得 LINE access token，請重新開啟頁面。');
+      }
+
+      const response = await fetch(CONFIG.GAS_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action, access_token: accessToken, ...payload }),
+        redirect: 'follow'
       });
 
-      if (!result.success) {
-        throw new Error(result.message || result.error || '送出申請失敗。');
+      const text = await response.text();
+
+      try {
+        return JSON.parse(text);
+      } catch (error) {
+        throw new Error('GAS 回傳內容不是 JSON：' + text.slice(0, 200));
+      }
+    }
+
+    async function runAction(loadingText, fn) {
+      setButtonsDisabled(true);
+      showLoading(loadingText);
+
+      try {
+        await fn();
+      } catch (error) {
+        alert(error.message || '操作失敗。');
+        console.error(error);
+      } finally {
+        setButtonsDisabled(false);
+        hideLoading();
+      }
+    }
+
+    function resetView() {
+      show(els.loading);
+      hide(els.statusBox, els.bindForm, els.pendingBox, els.eventsBox, els.reloadBox);
+    }
+
+    function showLoading(message) {
+      els.loading.textContent = message;
+      show(els.loading);
+    }
+
+    function hideLoading() {
+      hide(els.loading);
+    }
+
+    function showStatus(message, type) {
+      els.statusBox.innerHTML = message;
+      els.statusBox.className = 'status-box';
+
+      if (type === 'success') els.statusBox.classList.add('status-success');
+      if (type === 'warning') els.statusBox.classList.add('status-warning');
+      if (type === 'error') els.statusBox.classList.add('status-error');
+
+      show(els.statusBox);
+    }
+
+    function show(...elements) {
+      elements.forEach(element => element && element.classList.remove('hidden'));
+    }
+
+    function hide(...elements) {
+      elements.forEach(element => element && element.classList.add('hidden'));
+    }
+
+    function setButtonsDisabled(disabled) {
+      document.querySelectorAll('button').forEach(button => {
+        button.disabled = disabled;
+      });
+    }
+
+    function findEvent(eventId) {
+      return state.events.find(event => event.event_id === eventId);
+    }
+
+    function buildTimeText(event) {
+      const start = event.start_time || '';
+      const end = event.end_time || '';
+
+      if (start && end) return start + '–' + end;
+      if (start) return start;
+      if (end) return end;
+      return '未設定';
+    }
+
+    function getEventStatusLabel(status) {
+      const map = {
+        draft: '草稿',
+        preview: '活動預告',
+        open: '報名中',
+        closing_soon: '即將截止',
+        closed: '已截止',
+        finalizing: '名單確認中',
+        completed: '已完成'
+      };
+
+      return map[normalize(status)] || status || '未設定';
+    }
+
+    function queryByData(key, value) {
+      return els.eventsContent.querySelector(`[data-${key}="${cssEscape(value)}"]`);
+    }
+
+    function isTrue(value) {
+      return value === true || normalize(value) === 'true' || value === '是' || value === '1';
+    }
+
+    function normalize(value) {
+      return String(value ?? '').trim().toLowerCase();
+    }
+
+    function cssEscape(value) {
+      if (window.CSS && CSS.escape) {
+        return CSS.escape(value);
       }
 
-      alert(result.message || '已送出身分綁定申請。');
-      await main();
-
-    } catch (error) {
-      alert('送出失敗：' + error.message);
-      console.error(error);
-    } finally {
-      setButtonsDisabled(false);
-      hideLoading();
-    }
-  }
-
-  async function cancelBindingRequest() {
-    const confirmed = confirm(
-      '確定要取消目前待審核的綁定申請嗎？\n\n取消後可以重新選擇社友姓名。'
-    );
-
-    if (!confirmed) return;
-
-    setButtonsDisabled(true);
-    showLoading('正在取消申請...');
-
-    try {
-      const result = await callGasApi('cancel_binding_request', {});
-
-      if (!result.success) {
-        throw new Error(result.message || result.error || '取消申請失敗。');
-      }
-
-      alert(result.message || '已取消申請。');
-      await main();
-
-    } catch (error) {
-      alert('取消失敗：' + error.message);
-      console.error(error);
-    } finally {
-      setButtonsDisabled(false);
-      hideLoading();
-    }
-  }
-
-  async function callGasApi(action, payload) {
-    const accessToken = liff.getAccessToken();
-
-    if (!accessToken) {
-      throw new Error('無法取得 LINE access token，請重新開啟頁面。');
+      return String(value ?? '').replace(/"/g, '\\"');
     }
 
-    const body = {
-      action,
-      access_token: accessToken,
-      ...payload
-    };
-
-    const response = await fetch(CONFIG.GAS_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'text/plain;charset=utf-8'
-      },
-      body: JSON.stringify(body),
-      redirect: 'follow'
-    });
-
-    const text = await response.text();
-
-    try {
-      return JSON.parse(text);
-    } catch (error) {
-      throw new Error('GAS 回傳內容不是 JSON：' + text.slice(0, 200));
-    }
-  }
-
-  function resetView() {
-    loading.classList.remove('hidden');
-    statusBox.classList.add('hidden');
-    bindForm.classList.add('hidden');
-    pendingBox.classList.add('hidden');
-    eventsBox.classList.add('hidden');
-    reloadBox.classList.add('hidden');
-  }
-
-  function showLoading(message) {
-    loading.textContent = message;
-    loading.classList.remove('hidden');
-  }
-
-  function hideLoading() {
-    loading.classList.add('hidden');
-  }
-
-  function showStatus(message, type) {
-    statusBox.innerHTML = message;
-    statusBox.className = 'status-box';
-
-    if (type === 'success') {
-      statusBox.classList.add('status-success');
-    } else if (type === 'warning') {
-      statusBox.classList.add('status-warning');
-    } else if (type === 'error') {
-      statusBox.classList.add('status-error');
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
     }
 
-    statusBox.classList.remove('hidden');
-  }
-
-  function setButtonsDisabled(disabled) {
-    const buttons = document.querySelectorAll('button');
-    buttons.forEach(button => {
-      button.disabled = disabled;
-    });
-  }
-
-  function buildTimeText(event) {
-    const start = event.start_time || '';
-    const end = event.end_time || '';
-
-    if (start && end) return start + '–' + end;
-    if (start) return start;
-    if (end) return end;
-
-    return '未設定';
-  }
-
-  function getEventStatusLabel(status) {
-    const map = {
-      draft: '草稿',
-      preview: '活動預告',
-      open: '報名中',
-      closing_soon: '即將截止',
-      closed: '已截止',
-      finalizing: '名單確認中',
-      completed: '已完成'
-    };
-
-    return map[normalize(status)] || status || '未設定';
-  }
-
-  function normalize(value) {
-    return String(value || '').trim().toLowerCase();
-  }
-
-  function escapeHtml(value) {
-    return String(value ?? '')
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#039;');
-  }
-
-  function escapeAttr(value) {
-    return escapeHtml(value)
-      .replaceAll('`', '&#096;');
-  }
-</script>
+    function escapeAttr(value) {
+      return escapeHtml(value).replaceAll('`', '&#096;');
+    }
+  </script>
 </body>
 </html>
