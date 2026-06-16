@@ -265,6 +265,35 @@
       line-height: 1.8;
     }
 
+
+    .detail-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .detail-link {
+      flex: 1;
+      display: block;
+      border-radius: 12px;
+      padding: 12px 10px;
+      font-size: 14px;
+      font-weight: bold;
+      text-align: center;
+      text-decoration: none;
+      box-sizing: border-box;
+    }
+
+    .detail-link.primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .detail-link.secondary {
+      background: #e8e1f1;
+      color: var(--primary-dark);
+    }
+
     .guest-box {
       margin-top: 14px;
       padding-top: 12px;
@@ -368,7 +397,7 @@
       </div>
 
       <div class="footer">
-        龍穎社活動報名與來賓管理系統｜v3 測試版
+        龍穎社活動報名與來賓管理系統｜v3.6 EDM 連結版
       </div>
     </div>
   </div>
@@ -376,7 +405,9 @@
   <script>
     const CONFIG = {
       LIFF_ID: '2010401579-60qfBgC0',
-      GAS_API_URL: 'https://script.google.com/macros/s/AKfycbwZ-0XcZmi7xy6K1VMgMzXpi6s_XNAGGf_Yjml97nyKZaJufQYfpPeP6PlLxIyYPRojHw/exec'
+      GAS_API_URL: 'https://script.google.com/macros/s/AKfycbwZ-0XcZmi7xy6K1VMgMzXpi6s_XNAGGf_Yjml97nyKZaJufQYfpPeP6PlLxIyYPRojHw/exec',
+      // EDM 頁面採 event_id 自動讀圖，例如 edm.html?event_id=E0001 -> assets/edm/E0001.jpg
+      EDM_PAGE_URL: './edm.html'
     };
 
     const state = {
@@ -718,6 +749,8 @@
     }
 
     function buildEventDetails(event) {
+      const edmUrl = buildEdmUrl(event.event_id);
+
       return `
         <details class="event-details">
           <summary>查看活動詳情</summary>
@@ -730,9 +763,21 @@
             目前人數：社友 ${escapeHtml(event.member_count)} 位、來賓 ${escapeHtml(event.guest_count)} 位，總計 ${escapeHtml(event.total_count)} 位<br>
             來賓設定：${isTrue(event.guest_allowed) ? '開放' : '不開放'}${event.guest_limit ? '｜每位上限：' + escapeHtml(event.guest_limit) : ''}${event.max_capacity ? '｜總人數上限：' + escapeHtml(event.max_capacity) : ''}
             ${event.announcement_text ? '<br>公告：' + escapeHtml(event.announcement_text) : ''}
+
+            <div class="detail-actions">
+              <a class="detail-link primary" href="${escapeAttr(edmUrl)}">
+                查看活動 EDM
+              </a>
+            </div>
           </div>
         </details>
       `;
+    }
+
+    function buildEdmUrl(eventId) {
+      const safeEventId = String(eventId || '').trim().toUpperCase();
+      const separator = CONFIG.EDM_PAGE_URL.includes('?') ? '&' : '?';
+      return CONFIG.EDM_PAGE_URL + separator + 'event_id=' + encodeURIComponent(safeEventId);
     }
 
     function bindEventButtons() {
