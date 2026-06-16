@@ -142,8 +142,73 @@
       line-height: 1.6;
     }
 
+    h2 {
+  font-size: 18px;
+  margin: 24px 0 12px;
+  color: #4f2b79;
+}
+
+.events-box {
+  margin-top: 20px;
+}
+
+.event-card {
+  border: 1px solid #eadff4;
+  border-radius: 16px;
+  padding: 16px;
+  margin: 14px 0;
+  background: #fff;
+}
+
+.event-title {
+  font-weight: bold;
+  font-size: 17px;
+  color: #3a2a4d;
+  margin-bottom: 8px;
+}
+
+.event-meta {
+  color: #666;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.event-status {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f4f1fa;
+  color: #6b3fa0;
+  font-size: 13px;
+  margin: 8px 0;
+}
+
+.my-status {
+  margin-top: 8px;
+  font-weight: bold;
+  color: #333;
+}
+
+.event-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.event-actions button {
+  padding: 11px 8px;
+  font-size: 14px;
+}
+
+.mini-note {
+  margin-top: 10px;
+  color: #777;
+  font-size: 13px;
+  line-height: 1.5;
+}
     .hidden {
       display: none;
+
     }
   </style>
 </head>
@@ -186,10 +251,16 @@
         </div>
       </div>
 
-      <div id="reloadBox" class="button-row hidden">
-        <button id="reloadBtn" class="secondary">重新整理狀態</button>
+      <div id="eventsBox" class="events-box hidden">
+         <h2>活動列表</h2>
+          <div id="eventsContent" class="mini-note">
+             活動資料載入中...
+          </div>
       </div>
-    </div>
+
+<div id="reloadBox" class="button-row hidden">
+  <button id="reloadBtn" class="secondary">重新整理狀態</button>
+</div>
 
     <div class="footer">
       龍穎社活動報名與來賓管理系統｜第一版測試
@@ -197,296 +268,491 @@
   </div>
 
   <script>
-    const CONFIG = {
-      LIFF_ID: '2010401579-60qfBgC0',
-      GAS_API_URL: 'https://script.google.com/macros/s/AKfycbwZ-0XcZmi7xy6K1VMgMzXpi6s_XNAGGf_Yjml97nyKZaJufQYfpPeP6PlLxIyYPRojHw/exec'
+  const CONFIG = {
+    LIFF_ID: '2010401579-60qfBgC0',
+    GAS_API_URL: 'https://script.google.com/macros/s/AKfycbwZ-0XcZmi7xy6K1VMgMzXpi6s_XNAGGf_Yjml97nyKZaJufQYfpPeP6PlLxIyYPRojHw/exec'
+  };
+
+  let allMembers = [];
+  let currentProfile = null;
+  let currentBindingStatus = null;
+  let currentEvents = [];
+
+  const loading = document.getElementById('loading');
+  const statusBox = document.getElementById('statusBox');
+  const bindForm = document.getElementById('bindForm');
+  const pendingBox = document.getElementById('pendingBox');
+  const eventsBox = document.getElementById('eventsBox');
+  const eventsContent = document.getElementById('eventsContent');
+  const reloadBox = document.getElementById('reloadBox');
+
+  const searchInput = document.getElementById('searchInput');
+  const memberSelect = document.getElementById('memberSelect');
+  const submitBtn = document.getElementById('submitBtn');
+  const cancelBtn = document.getElementById('cancelBtn');
+  const reloadBtn = document.getElementById('reloadBtn');
+
+  window.addEventListener('load', main);
+  searchInput.addEventListener('input', renderMemberOptions);
+  submitBtn.addEventListener('click', submitBindingRequest);
+  cancelBtn.addEventListener('click', cancelBindingRequest);
+  reloadBtn.addEventListener('click', main);
+
+  async function main() {
+    resetView();
+    showLoading('系統載入中，請稍候...');
+
+    try {
+      if (!CONFIG.LIFF_ID) {
+        throw new Error('尚未設定 LIFF_ID。');
+      }
+
+      if (!CONFIG.GAS_API_URL) {
+        throw new Error('尚未設定 GAS_API_URL。');
+      }
+
+      await liff.init({ liffId: CONFIG.LIFF_ID });
+
+      if (!liff.isLoggedIn()) {
+        liff.login({ redirectUri: window.location.href });
+        return;
+      }
+
+      currentProfile = await liff.getProfile();
+
+      const result = await callGasApi('get_members', {});
+      if (!result.success) {
+        throw new Error(result.error || '取得社友名單失敗。');
+      }
+
+      allMembers = result.members || [];
+      currentBindingStatus = result.bindingStatus;
+
+      renderByBindingStatus();
+
+    } catch (error) {
+      showStatus('系統錯誤：' + error.message, 'error');
+      console.error(error);
+    } finally {
+      hideLoading();
+    }
+  }
+
+  function renderByBindingStatus() {
+    bindForm.classList.add('hidden');
+    pendingBox.classList.add('hidden');
+    eventsBox.classList.add('hidden');
+    reloadBox.classList.remove('hidden');
+
+    const status = currentBindingStatus && currentBindingStatus.status;
+
+    if (status === 'active') {
+      showStatus(
+        '已完成身分綁定<br>' +
+        '社友：' + escapeHtml(currentBindingStatus.member_name || '') + '<br>' +
+        '您已可以使用活動報名、取消與來賓登記功能。',
+        'success'
+      );
+
+      eventsBox.classList.remove('hidden');
+      loadMyEvents();
+      return;
+    }
+
+    if (status === 'pending') {
+      showStatus(
+        '已有身分綁定申請待審核<br>' +
+        '申請社友：' + escapeHtml(currentBindingStatus.requested_member_name || '') + '<br>' +
+        '請等待執秘審核。若選錯姓名，可取消後重新選擇。',
+        'warning'
+      );
+      pendingBox.classList.remove('hidden');
+      return;
+    }
+
+    showStatus(
+      '目前尚未完成身分綁定。<br>' +
+      'LINE 顯示名稱：' + escapeHtml(currentProfile.displayName || '') + '<br>' +
+      '請選擇您的社友姓名後送出申請。',
+      'normal'
+    );
+
+    bindForm.classList.remove('hidden');
+    renderMemberOptions();
+  }
+
+  function renderMemberOptions() {
+    const keyword = normalize(searchInput.value);
+    const filtered = allMembers.filter(member => {
+      const text = normalize(
+        [
+          member.member_name,
+          member.nickname,
+          member.display_name_for_liff,
+          member.member_no
+        ].join(' ')
+      );
+      return !keyword || text.includes(keyword);
+    });
+
+    memberSelect.innerHTML = '';
+
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = filtered.length
+      ? '請選擇社友'
+      : '查無符合社友，請重新搜尋';
+    memberSelect.appendChild(defaultOption);
+
+    filtered.forEach(member => {
+      const option = document.createElement('option');
+      option.value = member.member_id;
+      option.textContent = member.display_name_for_liff;
+      memberSelect.appendChild(option);
+    });
+  }
+
+  async function loadMyEvents() {
+    eventsContent.innerHTML = '活動資料載入中...';
+
+    try {
+      const result = await callGasApi('get_my_events', {});
+
+      if (!result.success) {
+        throw new Error(result.message || result.error || '取得活動資料失敗。');
+      }
+
+      currentEvents = result.events || [];
+      renderEvents(currentEvents);
+
+    } catch (error) {
+      eventsContent.innerHTML =
+        '<div class="status-box status-error">活動資料載入失敗：' +
+        escapeHtml(error.message) +
+        '</div>';
+      console.error(error);
+    }
+  }
+
+  function renderEvents(events) {
+    if (!events || events.length === 0) {
+      eventsContent.innerHTML = '目前沒有可顯示的活動。';
+      return;
+    }
+
+    eventsContent.innerHTML = events.map(event => {
+      const statusLabel = getEventStatusLabel(event.status);
+      const timeText = buildTimeText(event);
+      const actionHtml = buildEventActions(event);
+
+      return `
+        <div class="event-card">
+          <div class="event-title">${escapeHtml(event.event_name)}</div>
+
+          <div class="event-status">${escapeHtml(statusLabel)}</div>
+
+          <div class="event-meta">
+            日期：${escapeHtml(event.event_date || '未設定')}<br>
+            時間：${escapeHtml(timeText)}<br>
+            地點：${escapeHtml(event.location || '未設定')}<br>
+            類型：${escapeHtml(event.event_type || '未設定')}<br>
+            報名截止：${escapeHtml(event.registration_deadline || '未設定')}<br>
+            取消截止：${escapeHtml(event.cancel_deadline || '未設定')}<br>
+            目前人數：社友 ${escapeHtml(event.member_count)} 位、來賓 ${escapeHtml(event.guest_count)} 位，總計 ${escapeHtml(event.total_count)} 位
+          </div>
+
+          ${event.topic ? `<div class="mini-note">主題：${escapeHtml(event.topic)}</div>` : ''}
+          ${event.speaker ? `<div class="mini-note">講師：${escapeHtml(event.speaker)}</div>` : ''}
+          ${event.announcement_text ? `<div class="mini-note">${escapeHtml(event.announcement_text)}</div>` : ''}
+
+          <div class="my-status">
+            我的狀態：${escapeHtml(event.my_registration_status || '未回覆')}
+            ${event.my_guest_count ? `｜我的來賓：${escapeHtml(event.my_guest_count)} 位` : ''}
+          </div>
+
+          ${actionHtml}
+        </div>
+      `;
+    }).join('');
+
+    bindEventActionButtons();
+  }
+
+  function buildEventActions(event) {
+    const buttons = [];
+
+    if (event.can_register) {
+      buttons.push(`
+        <button class="primary event-action-btn"
+          data-event-id="${escapeAttr(event.event_id)}"
+          data-status="參加">
+          參加
+        </button>
+      `);
+
+      buttons.push(`
+        <button class="secondary event-action-btn"
+          data-event-id="${escapeAttr(event.event_id)}"
+          data-status="不參加">
+          不參加
+        </button>
+      `);
+    }
+
+    if (event.my_registration_status === '參加' && event.can_cancel) {
+      buttons.push(`
+        <button class="danger event-action-btn"
+          data-event-id="${escapeAttr(event.event_id)}"
+          data-status="已取消">
+          取消報名
+        </button>
+      `);
+    }
+
+    if (buttons.length > 0) {
+      return `<div class="event-actions">${buttons.join('')}</div>`;
+    }
+
+    const message = event.register_message || event.cancel_message || '此活動目前不可操作。';
+
+    return `<div class="mini-note">${escapeHtml(message)}</div>`;
+  }
+
+  function bindEventActionButtons() {
+    const buttons = eventsContent.querySelectorAll('.event-action-btn');
+
+    buttons.forEach(button => {
+      button.addEventListener('click', async () => {
+        const eventId = button.getAttribute('data-event-id');
+        const status = button.getAttribute('data-status');
+
+        await submitMemberRegistration(eventId, status);
+      });
+    });
+  }
+
+  async function submitMemberRegistration(eventId, status) {
+    const event = currentEvents.find(item => item.event_id === eventId);
+    const eventName = event ? event.event_name : eventId;
+
+    const message =
+      status === '已取消'
+        ? '確定要取消報名？\n\n活動：' + eventName
+        : '確定要送出活動狀態？\n\n活動：' + eventName + '\n狀態：' + status;
+
+    const confirmed = confirm(message);
+    if (!confirmed) return;
+
+    setButtonsDisabled(true);
+    showLoading('正在更新活動狀態...');
+
+    try {
+      const result = await callGasApi('submit_member_registration', {
+        event_id: eventId,
+        status: status
+      });
+
+      if (!result.success) {
+        throw new Error(result.message || result.error || '更新失敗。');
+      }
+
+      alert(result.message || '已更新活動狀態。');
+      await loadMyEvents();
+
+    } catch (error) {
+      alert('更新失敗：' + error.message);
+      console.error(error);
+    } finally {
+      setButtonsDisabled(false);
+      hideLoading();
+    }
+  }
+
+  async function submitBindingRequest() {
+    const memberId = memberSelect.value;
+
+    if (!memberId) {
+      alert('請先選擇您的社友姓名。');
+      return;
+    }
+
+    const selectedMember = allMembers.find(member => member.member_id === memberId);
+    const name = selectedMember ? selectedMember.display_name_for_liff : memberId;
+
+    const confirmed = confirm(
+      '請確認是否送出綁定申請：\n\n' +
+      name + '\n\n' +
+      '送出後需等待執秘審核。'
+    );
+
+    if (!confirmed) return;
+
+    setButtonsDisabled(true);
+    showLoading('正在送出申請...');
+
+    try {
+      const result = await callGasApi('submit_binding_request', {
+        member_id: memberId
+      });
+
+      if (!result.success) {
+        throw new Error(result.message || result.error || '送出申請失敗。');
+      }
+
+      alert(result.message || '已送出身分綁定申請。');
+      await main();
+
+    } catch (error) {
+      alert('送出失敗：' + error.message);
+      console.error(error);
+    } finally {
+      setButtonsDisabled(false);
+      hideLoading();
+    }
+  }
+
+  async function cancelBindingRequest() {
+    const confirmed = confirm(
+      '確定要取消目前待審核的綁定申請嗎？\n\n取消後可以重新選擇社友姓名。'
+    );
+
+    if (!confirmed) return;
+
+    setButtonsDisabled(true);
+    showLoading('正在取消申請...');
+
+    try {
+      const result = await callGasApi('cancel_binding_request', {});
+
+      if (!result.success) {
+        throw new Error(result.message || result.error || '取消申請失敗。');
+      }
+
+      alert(result.message || '已取消申請。');
+      await main();
+
+    } catch (error) {
+      alert('取消失敗：' + error.message);
+      console.error(error);
+    } finally {
+      setButtonsDisabled(false);
+      hideLoading();
+    }
+  }
+
+  async function callGasApi(action, payload) {
+    const accessToken = liff.getAccessToken();
+
+    if (!accessToken) {
+      throw new Error('無法取得 LINE access token，請重新開啟頁面。');
+    }
+
+    const body = {
+      action,
+      access_token: accessToken,
+      ...payload
     };
 
-    let allMembers = [];
-    let currentProfile = null;
-    let currentBindingStatus = null;
+    const response = await fetch(CONFIG.GAS_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
+      },
+      body: JSON.stringify(body),
+      redirect: 'follow'
+    });
 
-    const loading = document.getElementById('loading');
-    const statusBox = document.getElementById('statusBox');
-    const bindForm = document.getElementById('bindForm');
-    const pendingBox = document.getElementById('pendingBox');
-    const reloadBox = document.getElementById('reloadBox');
+    const text = await response.text();
 
-    const searchInput = document.getElementById('searchInput');
-    const memberSelect = document.getElementById('memberSelect');
-    const submitBtn = document.getElementById('submitBtn');
-    const cancelBtn = document.getElementById('cancelBtn');
-    const reloadBtn = document.getElementById('reloadBtn');
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      throw new Error('GAS 回傳內容不是 JSON：' + text.slice(0, 200));
+    }
+  }
 
-    window.addEventListener('load', main);
-    searchInput.addEventListener('input', renderMemberOptions);
-    submitBtn.addEventListener('click', submitBindingRequest);
-    cancelBtn.addEventListener('click', cancelBindingRequest);
-    reloadBtn.addEventListener('click', main);
+  function resetView() {
+    loading.classList.remove('hidden');
+    statusBox.classList.add('hidden');
+    bindForm.classList.add('hidden');
+    pendingBox.classList.add('hidden');
+    eventsBox.classList.add('hidden');
+    reloadBox.classList.add('hidden');
+  }
 
-    async function main() {
-      resetView();
-      showLoading('系統載入中，請稍候...');
+  function showLoading(message) {
+    loading.textContent = message;
+    loading.classList.remove('hidden');
+  }
 
-      try {
-        if (!CONFIG.LIFF_ID || CONFIG.LIFF_ID.includes('請換成')) {
-          throw new Error('尚未設定 LIFF_ID。請先在 index.html 裡填入 LIFF ID。');
-        }
+  function hideLoading() {
+    loading.classList.add('hidden');
+  }
 
-        if (!CONFIG.GAS_API_URL || CONFIG.GAS_API_URL.includes('請換成')) {
-          throw new Error('尚未設定 GAS_API_URL。請先在 index.html 裡填入 GAS Web App URL。');
-        }
+  function showStatus(message, type) {
+    statusBox.innerHTML = message;
+    statusBox.className = 'status-box';
 
-        await liff.init({ liffId: CONFIG.LIFF_ID });
-
-        if (!liff.isLoggedIn()) {
-          liff.login({ redirectUri: window.location.href });
-          return;
-        }
-
-        currentProfile = await liff.getProfile();
-
-        const result = await callGasApi('get_members', {});
-        if (!result.success) {
-          throw new Error(result.error || '取得社友名單失敗。');
-        }
-
-        allMembers = result.members || [];
-        currentBindingStatus = result.bindingStatus;
-
-        renderByBindingStatus();
-
-      } catch (error) {
-        showStatus('系統錯誤：' + error.message, 'error');
-        console.error(error);
-      } finally {
-        hideLoading();
-      }
+    if (type === 'success') {
+      statusBox.classList.add('status-success');
+    } else if (type === 'warning') {
+      statusBox.classList.add('status-warning');
+    } else if (type === 'error') {
+      statusBox.classList.add('status-error');
     }
 
-    function renderByBindingStatus() {
-      bindForm.classList.add('hidden');
-      pendingBox.classList.add('hidden');
-      reloadBox.classList.remove('hidden');
+    statusBox.classList.remove('hidden');
+  }
 
-      const status = currentBindingStatus && currentBindingStatus.status;
+  function setButtonsDisabled(disabled) {
+    const buttons = document.querySelectorAll('button');
+    buttons.forEach(button => {
+      button.disabled = disabled;
+    });
+  }
 
-      if (status === 'active') {
-        showStatus(
-          '已完成身分綁定<br>' +
-          '社友：' + escapeHtml(currentBindingStatus.member_name || '') + '<br>' +
-          '您已可以使用活動報名、取消與來賓登記功能。',
-          'success'
-        );
-        return;
-      }
+  function buildTimeText(event) {
+    const start = event.start_time || '';
+    const end = event.end_time || '';
 
-      if (status === 'pending') {
-        showStatus(
-          '已有身分綁定申請待審核<br>' +
-          '申請社友：' + escapeHtml(currentBindingStatus.requested_member_name || '') + '<br>' +
-          '請等待執秘審核。若選錯姓名，可取消後重新選擇。',
-          'warning'
-        );
-        pendingBox.classList.remove('hidden');
-        return;
-      }
+    if (start && end) return start + '–' + end;
+    if (start) return start;
+    if (end) return end;
 
-      showStatus(
-        '目前尚未完成身分綁定。<br>' +
-        'LINE 顯示名稱：' + escapeHtml(currentProfile.displayName || '') + '<br>' +
-        '請選擇您的社友姓名後送出申請。',
-        'normal'
-      );
+    return '未設定';
+  }
 
-      bindForm.classList.remove('hidden');
-      renderMemberOptions();
-    }
+  function getEventStatusLabel(status) {
+    const map = {
+      draft: '草稿',
+      preview: '活動預告',
+      open: '報名中',
+      closing_soon: '即將截止',
+      closed: '已截止',
+      finalizing: '名單確認中',
+      completed: '已完成'
+    };
 
-    function renderMemberOptions() {
-      const keyword = normalize(searchInput.value);
-      const filtered = allMembers.filter(member => {
-        const text = normalize(
-          [
-            member.member_name,
-            member.nickname,
-            member.display_name_for_liff,
-            member.member_no
-          ].join(' ')
-        );
-        return !keyword || text.includes(keyword);
-      });
+    return map[normalize(status)] || status || '未設定';
+  }
 
-      memberSelect.innerHTML = '';
+  function normalize(value) {
+    return String(value || '').trim().toLowerCase();
+  }
 
-      const defaultOption = document.createElement('option');
-      defaultOption.value = '';
-      defaultOption.textContent = filtered.length
-        ? '請選擇社友'
-        : '查無符合社友，請重新搜尋';
-      memberSelect.appendChild(defaultOption);
+  function escapeHtml(value) {
+    return String(value || '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
 
-      filtered.forEach(member => {
-        const option = document.createElement('option');
-        option.value = member.member_id;
-        option.textContent = member.display_name_for_liff;
-        memberSelect.appendChild(option);
-      });
-    }
-
-    async function submitBindingRequest() {
-      const memberId = memberSelect.value;
-
-      if (!memberId) {
-        alert('請先選擇您的社友姓名。');
-        return;
-      }
-
-      const selectedMember = allMembers.find(member => member.member_id === memberId);
-      const name = selectedMember ? selectedMember.display_name_for_liff : memberId;
-
-      const confirmed = confirm(
-        '請確認是否送出綁定申請：\n\n' +
-        name + '\n\n' +
-        '送出後需等待執秘審核。'
-      );
-
-      if (!confirmed) return;
-
-      setButtonsDisabled(true);
-      showLoading('正在送出申請...');
-
-      try {
-        const result = await callGasApi('submit_binding_request', {
-          member_id: memberId
-        });
-
-        if (!result.success) {
-          throw new Error(result.message || result.error || '送出申請失敗。');
-        }
-
-        alert(result.message || '已送出身分綁定申請。');
-        await main();
-
-      } catch (error) {
-        alert('送出失敗：' + error.message);
-        console.error(error);
-      } finally {
-        setButtonsDisabled(false);
-        hideLoading();
-      }
-    }
-
-    async function cancelBindingRequest() {
-      const confirmed = confirm(
-        '確定要取消目前待審核的綁定申請嗎？\n\n取消後可以重新選擇社友姓名。'
-      );
-
-      if (!confirmed) return;
-
-      setButtonsDisabled(true);
-      showLoading('正在取消申請...');
-
-      try {
-        const result = await callGasApi('cancel_binding_request', {});
-
-        if (!result.success) {
-          throw new Error(result.message || result.error || '取消申請失敗。');
-        }
-
-        alert(result.message || '已取消申請。');
-        await main();
-
-      } catch (error) {
-        alert('取消失敗：' + error.message);
-        console.error(error);
-      } finally {
-        setButtonsDisabled(false);
-        hideLoading();
-      }
-    }
-
-    async function callGasApi(action, payload) {
-      const accessToken = liff.getAccessToken();
-
-      if (!accessToken) {
-        throw new Error('無法取得 LINE access token，請重新開啟頁面。');
-      }
-
-      const body = {
-        action,
-        access_token: accessToken,
-        ...payload
-      };
-
-      const response = await fetch(CONFIG.GAS_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8'
-        },
-        body: JSON.stringify(body),
-        redirect: 'follow'
-      });
-
-      const text = await response.text();
-
-      try {
-        return JSON.parse(text);
-      } catch (error) {
-        throw new Error('GAS 回傳內容不是 JSON：' + text.slice(0, 200));
-      }
-    }
-
-    function resetView() {
-      loading.classList.remove('hidden');
-      statusBox.classList.add('hidden');
-      bindForm.classList.add('hidden');
-      pendingBox.classList.add('hidden');
-      reloadBox.classList.add('hidden');
-    }
-
-    function showLoading(message) {
-      loading.textContent = message;
-      loading.classList.remove('hidden');
-    }
-
-    function hideLoading() {
-      loading.classList.add('hidden');
-    }
-
-    function showStatus(message, type) {
-      statusBox.innerHTML = message;
-      statusBox.className = 'status-box';
-
-      if (type === 'success') {
-        statusBox.classList.add('status-success');
-      } else if (type === 'warning') {
-        statusBox.classList.add('status-warning');
-      } else if (type === 'error') {
-        statusBox.classList.add('status-error');
-      }
-
-      statusBox.classList.remove('hidden');
-    }
-
-    function setButtonsDisabled(disabled) {
-      submitBtn.disabled = disabled;
-      cancelBtn.disabled = disabled;
-      reloadBtn.disabled = disabled;
-    }
-
-    function normalize(value) {
-      return String(value || '').trim().toLowerCase();
-    }
-
-    function escapeHtml(value) {
-      return String(value || '')
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#039;');
-    }
-  </script>
+  function escapeAttr(value) {
+    return escapeHtml(value)
+      .replaceAll('`', '&#096;');
+  }
+</script>
 </body>
 </html>
