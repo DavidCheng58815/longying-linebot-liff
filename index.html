@@ -440,11 +440,24 @@
 
         state.profile = await liff.getProfile();
 
-        const result = await callGasApi('get_members', {});
-        if (!result.success) throw new Error(result.error || '取得社友名單失敗。');
+        // v3.5 優化：先只查綁定狀態。
+        // 已綁定或待審核者不需要每次都載入全部社友名單。
+        const statusResult = await callGasApi('check_binding_status', {});
+        if (!statusResult.success) throw new Error(statusResult.error || '取得綁定狀態失敗。');
 
-        state.members = result.members || [];
-        state.bindingStatus = result.bindingStatus;
+        state.profile = statusResult.profile || state.profile;
+        state.bindingStatus = statusResult.bindingStatus;
+        state.members = [];
+
+        const bindingStatus = state.bindingStatus && state.bindingStatus.status;
+
+        if (!bindingStatus || bindingStatus === 'none') {
+          const memberResult = await callGasApi('get_members', {});
+          if (!memberResult.success) throw new Error(memberResult.error || '取得社友名單失敗。');
+
+          state.members = memberResult.members || [];
+          state.bindingStatus = memberResult.bindingStatus || state.bindingStatus;
+        }
 
         renderByBindingStatus();
 
@@ -664,7 +677,6 @@
 
       bindEventButtons();
       bindGuestButtons();
-      loadGuestsForAllEvents();
     }
 
     function buildEventActions(event) {
@@ -755,8 +767,9 @@
     function buildGuestManager(event) {
       if (!isTrue(event.guest_allowed)) return '';
 
-      const canAddGuest = event.can_add_guest ?? event.can_register;
-      const canCancelGuest = event.can_cancel_guest ?? event.can_cancel;
+      const canAddGuest = Boolean(event.can_add_guest ?? event.can_register);
+      const canCancelGuest = Boolean(event.can_cancel_guest ?? event.can_cancel);
+      const guests = Array.isArray(event.my_guests) ? event.my_guests : [];
 
       const inputHtml = canAddGuest
         ? `
@@ -769,68 +782,34 @@
         `
         : `<div class="mini-note">${escapeHtml(event.add_guest_message || '此活動目前不可新增來賓。')}</div>`;
 
-      const cancelNote = canCancelGuest ? '' : '<div class="mini-note">目前已超過來賓取消期限，如需異動請聯繫執秘。</div>';
+      const cancelNote = (!canCancelGuest && guests.length)
+        ? '<div class="mini-note">目前已超過來賓取消期限，如需異動請聯繫執秘。</div>'
+        : '';
 
       return `
-        <div class="guest-box" data-can-cancel-guest="${canCancelGuest ? 'true' : 'false'}" data-guest-event-id="${escapeAttr(event.event_id)}">
+        <div class="guest-box" data-guest-event-id="${escapeAttr(event.event_id)}">
           <div class="guest-title">我的來賓</div>
           ${inputHtml}
           ${cancelNote}
           <div class="guest-list" data-guest-list-event-id="${escapeAttr(event.event_id)}">
-            來賓資料載入中...
+            ${buildGuestListHtml(event, guests, canCancelGuest)}
           </div>
         </div>
       `;
     }
 
-    function bindGuestButtons() {
-      els.eventsContent.querySelectorAll('.add-guest-btn').forEach(button => {
-        button.addEventListener('click', async () => addGuest(button.getAttribute('data-event-id')));
-      });
-    }
-
-    async function loadGuestsForAllEvents() {
-      const lists = els.eventsContent.querySelectorAll('[data-guest-list-event-id]');
-
-      for (const list of lists) {
-        await loadGuestsForEvent(list.getAttribute('data-guest-list-event-id'));
-      }
-    }
-
-    async function loadGuestsForEvent(eventId) {
-      const list = queryByData('guest-list-event-id', eventId);
-      if (!list) return;
-
-      list.innerHTML = '來賓資料載入中...';
-
-      try {
-        const result = await callGasApi('get_my_guests', { event_id: eventId });
-        if (!result.success) throw new Error(result.message || result.error || '取得來賓資料失敗。');
-
-        renderGuests(eventId, result.guests || []);
-
-      } catch (error) {
-        list.innerHTML = '<div class="mini-note">來賓資料載入失敗：' + escapeHtml(error.message) + '</div>';
-        console.error(error);
-      }
-    }
-
-    function renderGuests(eventId, guests) {
-      const list = queryByData('guest-list-event-id', eventId);
-      if (!list) return;
-
+    function buildGuestListHtml(event, guests, canCancelGuest) {
       if (!guests.length) {
-        list.innerHTML = '<div class="mini-note">目前尚未登記來賓。</div>';
-        return;
+        return '<div class="mini-note">目前尚未登記來賓。</div>';
       }
 
-      const event = findEvent(eventId);
-      const canCancelGuest = Boolean(event && (event.can_cancel_guest ?? event.can_cancel));
-
-      list.innerHTML = guests.map(guest => {
+      return guests.map(guest => {
         const cancelButton = canCancelGuest
           ? `
-            <button class="danger cancel-guest-btn" data-event-id="${escapeAttr(eventId)}" data-guest-id="${escapeAttr(guest.guest_id)}" data-guest-name="${escapeAttr(guest.guest_name)}">
+            <button class="danger cancel-guest-btn"
+              data-event-id="${escapeAttr(event.event_id)}"
+              data-guest-id="${escapeAttr(guest.guest_id)}"
+              data-guest-name="${escapeAttr(guest.guest_name)}">
               取消
             </button>
           `
@@ -843,8 +822,14 @@
           </div>
         `;
       }).join('');
+    }
 
-      list.querySelectorAll('.cancel-guest-btn').forEach(button => {
+    function bindGuestButtons() {
+      els.eventsContent.querySelectorAll('.add-guest-btn').forEach(button => {
+        button.addEventListener('click', async () => addGuest(button.getAttribute('data-event-id')));
+      });
+
+      els.eventsContent.querySelectorAll('.cancel-guest-btn').forEach(button => {
         button.addEventListener('click', async () => {
           await cancelGuest(
             button.getAttribute('data-event-id'),
