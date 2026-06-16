@@ -535,18 +535,42 @@
   loadGuestsForAllVisibleEvents();
 }
 
-  function buildEventActions(event) {
-    const buttons = [];
+ function buildEventActions(event) {
+  const buttons = [];
+  const myStatus = event.my_registration_status || '未回覆';
 
-    if (event.can_register) {
+  // 已參加的人，只能取消報名，不再顯示「不參加」
+  if (myStatus === '參加') {
+    if (event.can_cancel) {
       buttons.push(`
-        <button class="primary event-action-btn"
+        <button class="danger event-action-btn"
           data-event-id="${escapeAttr(event.event_id)}"
-          data-status="參加">
-          參加
+          data-status="已取消">
+          取消報名
         </button>
       `);
 
+      return `<div class="event-actions">${buttons.join('')}</div>`;
+    }
+
+    return `
+      <div class="mini-note">
+        您已報名此活動，且已超過取消期限。若需異動請聯繫執秘。
+      </div>
+    `;
+  }
+
+  // 未回覆、不參加、已取消的人，在報名期限內可以重新選擇
+  if (event.can_register) {
+    buttons.push(`
+      <button class="primary event-action-btn"
+        data-event-id="${escapeAttr(event.event_id)}"
+        data-status="參加">
+        參加
+      </button>
+    `);
+
+    if (myStatus !== '不參加') {
       buttons.push(`
         <button class="secondary event-action-btn"
           data-event-id="${escapeAttr(event.event_id)}"
@@ -556,24 +580,13 @@
       `);
     }
 
-    if (event.my_registration_status === '參加' && event.can_cancel) {
-      buttons.push(`
-        <button class="danger event-action-btn"
-          data-event-id="${escapeAttr(event.event_id)}"
-          data-status="已取消">
-          取消報名
-        </button>
-      `);
-    }
-
-    if (buttons.length > 0) {
-      return `<div class="event-actions">${buttons.join('')}</div>`;
-    }
-
-    const message = event.register_message || event.cancel_message || '此活動目前不可操作。';
-
-    return `<div class="mini-note">${escapeHtml(message)}</div>`;
+    return `<div class="event-actions">${buttons.join('')}</div>`;
   }
+
+  const message = event.register_message || event.cancel_message || '此活動目前不可操作。';
+
+  return `<div class="mini-note">${escapeHtml(message)}</div>`;
+}
   function buildGuestManager(event) {
   const guestAllowed =
     event.guest_allowed === true ||
