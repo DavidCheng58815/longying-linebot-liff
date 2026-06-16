@@ -168,7 +168,7 @@
 
       registerLink.href = './index.html?event_id=' + encodeURIComponent(eventId);
 
-      const imageUrl = CONFIG.EDM_BASE_PATH + encodeURIComponent(eventId) + '.jpg';
+      const imageUrl = CONFIG.EDM_BASE_PATH + encodeURIComponent(eventId) + '.png';
 
       edmImage.onload = function () {
         statusBox.classList.add('hidden');
@@ -180,7 +180,7 @@
         showStatus(
           '此活動 EDM 尚未上架。<br>' +
           '請確認 GitHub 是否已有圖片：<br>' +
-          'assets/edm/' + escapeHtml(eventId) + '.jpg'
+          'assets/edm/' + escapeHtml(eventId) + '.png'
         );
       };
 
