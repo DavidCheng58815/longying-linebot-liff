@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>龍穎社活動 EDM</title>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: "Microsoft JhengHei", Arial, sans-serif;
+      background: #f6f3ee;
+      color: #2d2d2d;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 20px 14px 36px;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      color: #6b3fa0;
+    }
+
+    .subtitle {
+      color: #666;
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .event-id {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: #f4f1fa;
+      color: #6b3fa0;
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+
+    .edm-image {
+      width: 100%;
+      border-radius: 14px;
+      display: block;
+      background: #f2f2f2;
+    }
+
+    .status-box {
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin: 16px 0;
+      background: #fff7e6;
+      border-left: 5px solid #e09b22;
+      line-height: 1.6;
+      font-size: 15px;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    button, a.button {
+      flex: 1;
+      border: 0;
+      border-radius: 12px;
+      padding: 13px 12px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      text-decoration: none;
+      text-align: center;
+      box-sizing: border-box;
+    }
+
+    .primary {
+      background: #6b3fa0;
+      color: white;
+    }
+
+    .secondary {
+      background: #e8e1f1;
+      color: #4f2b79;
+    }
+
+    .footer {
+      margin-top: 18px;
+      color: #888;
+      font-size: 12px;
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>龍穎社活動 EDM</h1>
+      <div class="subtitle">
+        此頁面依活動代碼讀取對應 EDM 圖片。
+      </div>
+
+      <div id="eventIdBox" class="event-id hidden"></div>
+
+      <div id="statusBox" class="status-box">
+        EDM 載入中...
+      </div>
+
+      <img id="edmImage" class="edm-image hidden" alt="活動 EDM" />
+
+      <div class="button-row">
+        <a id="registerLink" class="button primary" href="./index.html">
+          前往活動報名
+        </a>
+        <button class="secondary" onclick="history.back()">
+          返回上一頁
+        </button>
+      </div>
+    </div>
+
+    <div class="footer">
+      龍穎社活動 EDM｜圖片依 event_id 自動讀取
+    </div>
+  </div>
+
+  <script>
+    const CONFIG = {
+      EDM_BASE_PATH: './assets/edm/',
+      REGISTER_PAGE: './index.html'
+    };
+
+    const eventIdBox = document.getElementById('eventIdBox');
+    const statusBox = document.getElementById('statusBox');
+    const edmImage = document.getElementById('edmImage');
+    const registerLink = document.getElementById('registerLink');
+
+    window.addEventListener('load', main);
+
+    function main() {
+      const eventId = getEventIdFromUrl();
+
+      if (!eventId) {
+        showStatus('找不到活動代碼 event_id。請從活動報名頁重新開啟 EDM。');
+        return;
+      }
+
+      eventIdBox.textContent = '活動代碼：' + eventId;
+      eventIdBox.classList.remove('hidden');
+
+      registerLink.href = './index.html?event_id=' + encodeURIComponent(eventId);
+
+      const imageUrl = CONFIG.EDM_BASE_PATH + encodeURIComponent(eventId) + '.jpg';
+
+      edmImage.onload = function () {
+        statusBox.classList.add('hidden');
+        edmImage.classList.remove('hidden');
+      };
+
+      edmImage.onerror = function () {
+        edmImage.classList.add('hidden');
+        showStatus(
+          '此活動 EDM 尚未上架。<br>' +
+          '請確認 GitHub 是否已有圖片：<br>' +
+          'assets/edm/' + escapeHtml(eventId) + '.jpg'
+        );
+      };
+
+      edmImage.src = imageUrl;
+    }
+
+    function getEventIdFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+
+      let eventId = params.get('event_id');
+
+      if (eventId) {
+        return normalizeEventId(eventId);
+      }
+
+      const liffState = params.get('liff.state');
+
+      if (liffState) {
+        const decoded = decodeURIComponent(liffState);
+        const queryIndex = decoded.indexOf('?');
+
+        if (queryIndex >= 0) {
+          const stateParams = new URLSearchParams(decoded.substring(queryIndex + 1));
+          eventId = stateParams.get('event_id');
+
+          if (eventId) {
+            return normalizeEventId(eventId);
+          }
+        }
+      }
+
+      return '';
+    }
+
+    function normalizeEventId(value) {
+      return String(value || '').trim().toUpperCase();
+    }
+
+    function showStatus(message) {
+      statusBox.innerHTML = message;
+      statusBox.classList.remove('hidden');
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+  </script>
+</body>
+</html>
