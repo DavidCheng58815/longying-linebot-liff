@@ -397,7 +397,7 @@
       </div>
 
       <div class="footer">
-        龍穎社活動報名與來賓管理系統｜v3.6 EDM 連結版
+        龍穎社活動報名與來賓管理系統｜v3.8 效能優化版
       </div>
     </div>
   </div>
@@ -414,7 +414,8 @@
       members: [],
       profile: null,
       bindingStatus: null,
-      events: []
+      events: [],
+      eventMeta: {}
     };
 
     const els = {};
@@ -456,7 +457,7 @@
 
     async function main() {
       resetView();
-      showLoading('系統載入中，請稍候...');
+      showLoading('正在初始化 LINE 環境，請稍候...');
 
       try {
         if (!CONFIG.LIFF_ID) throw new Error('尚未設定 LIFF_ID。');
@@ -464,12 +465,16 @@
 
         await liff.init({ liffId: CONFIG.LIFF_ID });
 
+        showLoading('正在確認 LINE 登入狀態...');
+
         if (!liff.isLoggedIn()) {
           liff.login({ redirectUri: window.location.href });
           return;
         }
 
         state.profile = await liff.getProfile();
+
+        showLoading('正在確認身分綁定狀態...');
 
         // v3.5 優化：先只查綁定狀態。
         // 已綁定或待審核者不需要每次都載入全部社友名單。
@@ -483,6 +488,8 @@
         const bindingStatus = state.bindingStatus && state.bindingStatus.status;
 
         if (!bindingStatus || bindingStatus === 'none') {
+          showLoading('正在載入社友名單...');
+
           const memberResult = await callGasApi('get_members', {});
           if (!memberResult.success) throw new Error(memberResult.error || '取得社友名單失敗。');
 
@@ -609,14 +616,17 @@
     }
 
     async function loadMyEvents() {
-      els.eventsContent.innerHTML = '活動資料載入中...';
+      els.eventsContent.innerHTML = '正在讀取近期活動與您的來賓資料...';
       hide(els.summaryBox);
 
       try {
+        showLoading('正在整理您的活動與來賓資料...');
+
         const result = await callGasApi('get_my_events', {});
         if (!result.success) throw new Error(result.message || result.error || '取得活動資料失敗。');
 
         state.events = result.events || [];
+        state.eventMeta = result.meta || {};
         renderSummary();
         renderEvents();
 
@@ -635,7 +645,7 @@
       const summary = calculateSummary(state.events);
 
       els.summaryBox.innerHTML = `
-        <div class="summary-title">我的報名總覽</div>
+        <div class="summary-title">我的報名總覽｜近期活動</div>
         <div class="summary-grid">
           ${buildSummaryItem(summary.joined, '已參加')}
           ${buildSummaryItem(summary.noResponse, '未回覆')}
@@ -678,7 +688,7 @@
 
     function renderEvents() {
       if (!state.events.length) {
-        els.eventsContent.innerHTML = '目前沒有可顯示的活動。';
+        els.eventsContent.innerHTML = '目前近期沒有可顯示的活動。';
         return;
       }
 
@@ -688,11 +698,11 @@
           <div class="event-status">${escapeHtml(getEventStatusLabel(event.status))}</div>
 
           <div class="event-meta">
-            日期：${escapeHtml(formatDateText(event.event_date) || '未設定')}<br>
+            日期：${escapeHtml(event.event_date || '未設定')}<br>
             時間：${escapeHtml(buildTimeText(event))}<br>
             地點：${escapeHtml(event.location || '未設定')}<br>
-            報名截止：${escapeHtml(formatDateText(event.registration_deadline) || '未設定')}<br>
-            取消截止：${escapeHtml(formatDateText(event.cancel_deadline) || '未設定')}
+            報名截止：${escapeHtml(event.registration_deadline || '未設定')}<br>
+            取消截止：${escapeHtml(event.cancel_deadline || '未設定')}
           </div>
 
           <div class="my-status">
@@ -1010,61 +1020,6 @@
       if (start) return start;
       if (end) return end;
       return '未設定';
-    }
-
-
-    function formatDateText(value) {
-      const text = String(value ?? '').trim();
-      if (!text) return '';
-
-      // 支援格式：2026/07/09、2026/7/9、2026-07-09
-      // 支援區間：2026/11/04-11/10、2027/03/27-03/28、2026/11/04-2026/11/10
-      const rangeMatch = text.match(
-        /^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s*[-–~～至]\s*(?:(\d{4})[\/\-])?(?:(\d{1,2})[\/\-])?(\d{1,2})$/
-      );
-
-      if (rangeMatch) {
-        const startYear = Number(rangeMatch[1]);
-        const startMonth = Number(rangeMatch[2]);
-        const startDay = Number(rangeMatch[3]);
-        const endYear = Number(rangeMatch[4] || startYear);
-        const endMonth = Number(rangeMatch[5] || startMonth);
-        const endDay = Number(rangeMatch[6]);
-
-        const startDate = makeLocalDate(startYear, startMonth, startDay);
-        const endDate = makeLocalDate(endYear, endMonth, endDay);
-
-        if (startDate && endDate) {
-          return formatMonthDayWeekday(startDate) + '–' + formatMonthDayWeekday(endDate);
-        }
-      }
-
-      const singleMatch = text.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
-      if (singleMatch) {
-        const date = makeLocalDate(Number(singleMatch[1]), Number(singleMatch[2]), Number(singleMatch[3]));
-        if (date) return formatMonthDayWeekday(date);
-      }
-
-      return text;
-    }
-
-    function makeLocalDate(year, month, day) {
-      const date = new Date(year, month - 1, day);
-
-      if (
-        date.getFullYear() !== year ||
-        date.getMonth() !== month - 1 ||
-        date.getDate() !== day
-      ) {
-        return null;
-      }
-
-      return date;
-    }
-
-    function formatMonthDayWeekday(date) {
-      const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-      return (date.getMonth() + 1) + '/' + date.getDate() + '(' + weekdays[date.getDay()] + ')';
     }
 
     function getEventStatusLabel(status) {
