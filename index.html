@@ -688,11 +688,11 @@
           <div class="event-status">${escapeHtml(getEventStatusLabel(event.status))}</div>
 
           <div class="event-meta">
-            日期：${escapeHtml(event.event_date || '未設定')}<br>
+            日期：${escapeHtml(formatDateText(event.event_date) || '未設定')}<br>
             時間：${escapeHtml(buildTimeText(event))}<br>
             地點：${escapeHtml(event.location || '未設定')}<br>
-            報名截止：${escapeHtml(event.registration_deadline || '未設定')}<br>
-            取消截止：${escapeHtml(event.cancel_deadline || '未設定')}
+            報名截止：${escapeHtml(formatDateText(event.registration_deadline) || '未設定')}<br>
+            取消截止：${escapeHtml(formatDateText(event.cancel_deadline) || '未設定')}
           </div>
 
           <div class="my-status">
@@ -1010,6 +1010,61 @@
       if (start) return start;
       if (end) return end;
       return '未設定';
+    }
+
+
+    function formatDateText(value) {
+      const text = String(value ?? '').trim();
+      if (!text) return '';
+
+      // 支援格式：2026/07/09、2026/7/9、2026-07-09
+      // 支援區間：2026/11/04-11/10、2027/03/27-03/28、2026/11/04-2026/11/10
+      const rangeMatch = text.match(
+        /^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s*[-–~～至]\s*(?:(\d{4})[\/\-])?(?:(\d{1,2})[\/\-])?(\d{1,2})$/
+      );
+
+      if (rangeMatch) {
+        const startYear = Number(rangeMatch[1]);
+        const startMonth = Number(rangeMatch[2]);
+        const startDay = Number(rangeMatch[3]);
+        const endYear = Number(rangeMatch[4] || startYear);
+        const endMonth = Number(rangeMatch[5] || startMonth);
+        const endDay = Number(rangeMatch[6]);
+
+        const startDate = makeLocalDate(startYear, startMonth, startDay);
+        const endDate = makeLocalDate(endYear, endMonth, endDay);
+
+        if (startDate && endDate) {
+          return formatMonthDayWeekday(startDate) + '–' + formatMonthDayWeekday(endDate);
+        }
+      }
+
+      const singleMatch = text.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+      if (singleMatch) {
+        const date = makeLocalDate(Number(singleMatch[1]), Number(singleMatch[2]), Number(singleMatch[3]));
+        if (date) return formatMonthDayWeekday(date);
+      }
+
+      return text;
+    }
+
+    function makeLocalDate(year, month, day) {
+      const date = new Date(year, month - 1, day);
+
+      if (
+        date.getFullYear() !== year ||
+        date.getMonth() !== month - 1 ||
+        date.getDate() !== day
+      ) {
+        return null;
+      }
+
+      return date;
+    }
+
+    function formatMonthDayWeekday(date) {
+      const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+      return (date.getMonth() + 1) + '/' + date.getDate() + '(' + weekdays[date.getDay()] + ')';
     }
 
     function getEventStatusLabel(status) {
