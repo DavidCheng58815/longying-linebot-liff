@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>龍穎社小幫手｜活動報名</title>
+  <title>龍穎小幫手｜活動報名</title>
 
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
@@ -219,6 +219,115 @@
       color: #333;
     }
 
+    .meal-status {
+      margin-top: 10px;
+      color: #555;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .meal-form {
+      margin-top: 10px;
+      padding: 12px;
+      border: 1px solid #f0e8f8;
+      border-radius: 14px;
+      background: #fbf9ff;
+    }
+
+    .meal-form-title {
+      font-weight: bold;
+      color: var(--primary-dark);
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    .meal-form-grid {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 8px;
+    }
+
+    .meal-form-grid select,
+    .meal-form-grid input {
+      padding: 11px 12px;
+      font-size: 14px;
+    }
+
+    .meal-form-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .meal-form-actions button {
+      padding: 10px 8px;
+      font-size: 14px;
+    }
+
+    .guest-form {
+      margin-top: 8px;
+      padding: 12px;
+      border: 1px solid #f0e8f8;
+      border-radius: 14px;
+      background: #fbf9ff;
+    }
+
+    .guest-form-grid {
+      display: grid;
+      grid-template-columns: 1fr 110px;
+      gap: 8px;
+    }
+
+    .guest-form-grid input,
+    .guest-form-grid select {
+      padding: 11px 12px;
+      font-size: 14px;
+    }
+
+    .guest-form .guest-note-input {
+      grid-column: 1 / -1;
+    }
+
+    .guest-form button {
+      width: 100%;
+      margin-top: 8px;
+      padding: 11px 8px;
+      font-size: 14px;
+    }
+
+    .guest-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .guest-name {
+      font-weight: bold;
+      color: #333;
+    }
+
+    .guest-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 84px;
+      flex: none;
+    }
+
+    .guest-actions button {
+      width: 84px;
+      flex: none;
+      padding: 8px 6px;
+      font-size: 13px;
+    }
+
+    @media (max-width: 420px) {
+      .meal-form-grid,
+      .guest-form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+
     .event-actions {
       display: flex;
       gap: 8px;
@@ -397,7 +506,7 @@
       </div>
 
       <div class="footer">
-        龍穎社活動報名與來賓管理系統｜v3.8 效能優化版
+        龍穎社活動報名與來賓管理系統｜v4 餐食選擇版
       </div>
     </div>
   </div>
@@ -724,17 +833,24 @@
       const status = event.my_registration_status || '未回覆';
 
       if (status === '參加') {
-        if (event.can_cancel) {
-          return `
-            <div class="event-actions">
-              <button class="danger event-action-btn" data-event-id="${escapeAttr(event.event_id)}" data-status="已取消">
-                取消報名
-              </button>
-            </div>
-          `;
-        }
+        const mealText = buildMealDisplayText(event.my_meal_preference, event.my_meal_note);
+        const mealForm = event.can_cancel ? buildMemberMealForm(event, 'update') : '';
+        const updateButton = event.can_cancel
+          ? `<button class="secondary member-meal-update-btn" data-event-id="${escapeAttr(event.event_id)}">修改餐食</button>`
+          : '';
+        const cancelButton = event.can_cancel
+          ? `<button class="danger event-action-btn" data-event-id="${escapeAttr(event.event_id)}" data-status="已取消">取消報名</button>`
+          : '';
+        const note = event.can_cancel
+          ? ''
+          : '<div class="mini-note">您已報名此活動，且已超過取消期限。若需異動餐食或取消，請聯繫執秘。</div>';
 
-        return '<div class="mini-note">您已報名此活動，且已超過取消期限。若需異動請聯繫執秘。</div>';
+        return `
+          <div class="meal-status">我的餐食：${escapeHtml(mealText)}</div>
+          ${mealForm}
+          ${updateButton || cancelButton ? `<div class="event-actions">${updateButton}${cancelButton}</div>` : ''}
+          ${note}
+        `;
       }
 
       if (!event.can_register) {
@@ -755,7 +871,59 @@
         `);
       }
 
-      return `<div class="event-actions">${buttons.join('')}</div>`;
+      return `
+        ${buildMemberMealForm(event, 'register')}
+        <div class="event-actions">${buttons.join('')}</div>
+      `;
+    }
+
+    function buildMemberMealForm(event, mode) {
+      const currentMeal = event.my_meal_preference || '葷食';
+      const currentNote = event.my_meal_note || '';
+      const title = mode === 'update' ? '修改本人餐食' : '報名餐食選擇';
+
+      return `
+        <div class="meal-form" data-member-meal-form-event-id="${escapeAttr(event.event_id)}">
+          <div class="meal-form-title">${escapeHtml(title)}</div>
+          <div class="meal-form-grid">
+            <select data-member-meal-select-event-id="${escapeAttr(event.event_id)}">
+              ${buildMealOptionsHtml(currentMeal)}
+            </select>
+            <input type="text" placeholder="餐食備註，例如：不吃牛、蛋奶素、全素" value="${escapeAttr(currentNote)}" data-member-meal-note-event-id="${escapeAttr(event.event_id)}">
+          </div>
+          <div class="mini-note">若無特殊需求，備註可留空。</div>
+        </div>
+      `;
+    }
+
+    function buildMealOptionsHtml(selectedMeal) {
+      const selected = normalizeMealPreference(selectedMeal) || '葷食';
+      return ['葷食', '素食'].map(option => {
+        return `<option value="${escapeAttr(option)}" ${option === selected ? 'selected' : ''}>${escapeHtml(option)}</option>`;
+      }).join('');
+    }
+
+    function getMemberMealPayload(eventId) {
+      const mealSelect = queryByData('member-meal-select-event-id', eventId);
+      const mealNoteInput = queryByData('member-meal-note-event-id', eventId);
+
+      return {
+        meal_preference: mealSelect ? mealSelect.value : '葷食',
+        meal_note: mealNoteInput ? mealNoteInput.value.trim() : ''
+      };
+    }
+
+    function buildMealDisplayText(mealPreference, mealNote) {
+      const meal = normalizeMealPreference(mealPreference) || '未填';
+      const note = String(mealNote || '').trim();
+      return note ? meal + '｜' + note : meal;
+    }
+
+    function normalizeMealPreference(value) {
+      const text = String(value || '').trim();
+      if (text === '葷' || text === '葷食') return '葷食';
+      if (text === '素' || text === '素食') return '素食';
+      return text;
     }
 
     function buildEventDetails(event) {
@@ -796,25 +964,55 @@
           await submitMemberRegistration(button.getAttribute('data-event-id'), button.getAttribute('data-status'));
         });
       });
+
+      els.eventsContent.querySelectorAll('.member-meal-update-btn').forEach(button => {
+        button.addEventListener('click', async () => {
+          await updateMemberMeal(button.getAttribute('data-event-id'));
+        });
+      });
     }
 
     async function submitMemberRegistration(eventId, status) {
       const event = findEvent(eventId);
       const eventName = event ? event.event_name : eventId;
+      const mealPayload = status === '參加' ? getMemberMealPayload(eventId) : {};
 
       const confirmed = confirm(
         status === '已取消'
           ? '確定要取消報名？\n\n活動：' + eventName
-          : '確定要送出活動狀態？\n\n活動：' + eventName + '\n狀態：' + status
+          : '確定要送出活動狀態？\n\n活動：' + eventName + '\n狀態：' + status +
+            (status === '參加' ? '\n餐食：' + buildMealDisplayText(mealPayload.meal_preference, mealPayload.meal_note) : '')
       );
 
       if (!confirmed) return;
 
       await runAction('正在更新活動狀態...', async () => {
-        const result = await callGasApi('submit_member_registration', { event_id: eventId, status });
+        const result = await callGasApi('submit_member_registration', { event_id: eventId, status, ...mealPayload });
         if (!result.success) throw new Error(result.message || result.error || '更新失敗。');
 
         alert(result.message || '已更新活動狀態。');
+        await loadMyEvents();
+      });
+    }
+
+    async function updateMemberMeal(eventId) {
+      const event = findEvent(eventId);
+      const eventName = event ? event.event_name : eventId;
+      const mealPayload = getMemberMealPayload(eventId);
+
+      const confirmed = confirm(
+        '確定要更新本人餐食？\n\n' +
+        '活動：' + eventName + '\n' +
+        '餐食：' + buildMealDisplayText(mealPayload.meal_preference, mealPayload.meal_note)
+      );
+
+      if (!confirmed) return;
+
+      await runAction('正在更新本人餐食...', async () => {
+        const result = await callGasApi('update_member_meal', { event_id: eventId, ...mealPayload });
+        if (!result.success) throw new Error(result.message || result.error || '更新餐食失敗。');
+
+        alert(result.message || '已更新餐食。');
         await loadMyEvents();
       });
     }
@@ -828,8 +1026,15 @@
 
       const inputHtml = canAddGuest
         ? `
-          <div class="guest-input-row">
-            <input type="text" placeholder="輸入來賓姓名" data-guest-input-event-id="${escapeAttr(event.event_id)}">
+          <div class="guest-form" data-guest-form-event-id="${escapeAttr(event.event_id)}">
+            <div class="guest-form-grid">
+              <input type="text" placeholder="輸入來賓姓名" data-guest-input-event-id="${escapeAttr(event.event_id)}">
+              <select data-guest-meal-select-event-id="${escapeAttr(event.event_id)}">
+                ${buildMealOptionsHtml('葷食')}
+              </select>
+              <input class="guest-note-input" type="text" placeholder="餐食備註，例如：不吃牛、蛋奶素、全素" data-guest-meal-note-event-id="${escapeAttr(event.event_id)}">
+            </div>
+            <div class="mini-note">新增來賓時請同步選擇餐食。若無特殊需求，備註可留空。</div>
             <button class="primary add-guest-btn" data-event-id="${escapeAttr(event.event_id)}">
               新增來賓
             </button>
@@ -838,7 +1043,7 @@
         : `<div class="mini-note">${escapeHtml(event.add_guest_message || '此活動目前不可新增來賓。')}</div>`;
 
       const cancelNote = (!canCancelGuest && guests.length)
-        ? '<div class="mini-note">目前已超過來賓取消期限，如需異動請聯繫執秘。</div>'
+        ? '<div class="mini-note">目前已超過來賓取消與餐食修改期限，如需異動請聯繫執秘。</div>'
         : '';
 
       return `
@@ -859,6 +1064,28 @@
       }
 
       return guests.map(guest => {
+        const mealText = buildMealDisplayText(guest.meal_preference, guest.meal_note);
+        const mealEditor = canCancelGuest
+          ? `
+            <div class="meal-form" data-guest-meal-form-guest-id="${escapeAttr(guest.guest_id)}">
+              <div class="meal-form-grid">
+                <select data-guest-meal-select-guest-id="${escapeAttr(guest.guest_id)}">
+                  ${buildMealOptionsHtml(guest.meal_preference || '葷食')}
+                </select>
+                <input type="text" placeholder="餐食備註" value="${escapeAttr(guest.meal_note || '')}" data-guest-meal-note-guest-id="${escapeAttr(guest.guest_id)}">
+              </div>
+              <div class="meal-form-actions">
+                <button class="secondary update-guest-meal-btn"
+                  data-event-id="${escapeAttr(event.event_id)}"
+                  data-guest-id="${escapeAttr(guest.guest_id)}"
+                  data-guest-name="${escapeAttr(guest.guest_name)}">
+                  修改餐食
+                </button>
+              </div>
+            </div>
+          `
+          : '';
+
         const cancelButton = canCancelGuest
           ? `
             <button class="danger cancel-guest-btn"
@@ -872,8 +1099,14 @@
 
         return `
           <div class="guest-item">
-            <span>${escapeHtml(guest.guest_name)}</span>
-            ${cancelButton}
+            <div class="guest-info">
+              <div class="guest-name">${escapeHtml(guest.guest_name)}</div>
+              <div class="mini-note">餐食：${escapeHtml(mealText)}</div>
+              ${mealEditor}
+            </div>
+            <div class="guest-actions">
+              ${cancelButton}
+            </div>
           </div>
         `;
       }).join('');
@@ -882,6 +1115,16 @@
     function bindGuestButtons() {
       els.eventsContent.querySelectorAll('.add-guest-btn').forEach(button => {
         button.addEventListener('click', async () => addGuest(button.getAttribute('data-event-id')));
+      });
+
+      els.eventsContent.querySelectorAll('.update-guest-meal-btn').forEach(button => {
+        button.addEventListener('click', async () => {
+          await updateGuestMeal(
+            button.getAttribute('data-event-id'),
+            button.getAttribute('data-guest-id'),
+            button.getAttribute('data-guest-name')
+          );
+        });
       });
 
       els.eventsContent.querySelectorAll('.cancel-guest-btn').forEach(button => {
@@ -897,6 +1140,8 @@
 
     async function addGuest(eventId) {
       const input = queryByData('guest-input-event-id', eventId);
+      const mealSelect = queryByData('guest-meal-select-event-id', eventId);
+      const mealNoteInput = queryByData('guest-meal-note-event-id', eventId);
       if (!input) return;
 
       const guestName = input.value.trim();
@@ -905,22 +1150,53 @@
         return;
       }
 
+      const mealPayload = {
+        meal_preference: mealSelect ? mealSelect.value : '葷食',
+        meal_note: mealNoteInput ? mealNoteInput.value.trim() : ''
+      };
+
       const event = findEvent(eventId);
       const eventName = event ? event.event_name : eventId;
 
       const confirmed = confirm(
         '確定要新增來賓？\n\n' +
         '活動：' + eventName + '\n' +
-        '來賓：' + guestName
+        '來賓：' + guestName + '\n' +
+        '餐食：' + buildMealDisplayText(mealPayload.meal_preference, mealPayload.meal_note)
       );
 
       if (!confirmed) return;
 
       await runAction('正在新增來賓...', async () => {
-        const result = await callGasApi('add_guest_registration', { event_id: eventId, guest_name: guestName });
+        const result = await callGasApi('add_guest_registration', { event_id: eventId, guest_name: guestName, ...mealPayload });
         if (!result.success) throw new Error(result.message || result.error || '新增來賓失敗。');
 
         alert(result.message || '已新增來賓。');
+        await loadMyEvents();
+      });
+    }
+
+    async function updateGuestMeal(eventId, guestId, guestName) {
+      const mealSelect = queryByData('guest-meal-select-guest-id', guestId);
+      const mealNoteInput = queryByData('guest-meal-note-guest-id', guestId);
+      const mealPayload = {
+        meal_preference: mealSelect ? mealSelect.value : '葷食',
+        meal_note: mealNoteInput ? mealNoteInput.value.trim() : ''
+      };
+
+      const confirmed = confirm(
+        '確定要更新這位來賓的餐食？\n\n' +
+        '來賓：' + guestName + '\n' +
+        '餐食：' + buildMealDisplayText(mealPayload.meal_preference, mealPayload.meal_note)
+      );
+
+      if (!confirmed) return;
+
+      await runAction('正在更新來賓餐食...', async () => {
+        const result = await callGasApi('update_guest_meal', { guest_id: guestId, ...mealPayload });
+        if (!result.success) throw new Error(result.message || result.error || '更新來賓餐食失敗。');
+
+        alert(result.message || '已更新來賓餐食。');
         await loadMyEvents();
       });
     }
