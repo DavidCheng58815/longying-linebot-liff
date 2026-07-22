@@ -456,6 +456,95 @@
       font-size: 13px;
     }
 
+
+    .event-card.is-busy {
+      border-color: #c9b4df;
+      box-shadow: 0 6px 18px rgba(107, 63, 160, 0.10);
+    }
+
+    .operation-status-slot:empty {
+      display: none;
+    }
+
+    .operation-status {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin: 10px 0 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .operation-status.queued,
+    .operation-status.saving {
+      background: #f5f0fb;
+      color: var(--primary-dark);
+      border: 1px solid #e2d6ef;
+    }
+
+    .operation-status.success {
+      background: #eef8f0;
+      color: #267a3d;
+      border: 1px solid #cfe8d5;
+    }
+
+    .operation-status.error {
+      display: block;
+      background: #fff0f0;
+      color: #a92f2f;
+      border: 1px solid #f1caca;
+    }
+
+    .operation-status .retry-operation-btn {
+      width: auto;
+      min-width: 96px;
+      margin-top: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+    }
+
+    .queue-bar {
+      position: fixed;
+      left: 50%;
+      bottom: calc(12px + env(safe-area-inset-bottom));
+      transform: translateX(-50%);
+      width: min(520px, calc(100% - 28px));
+      box-sizing: border-box;
+      padding: 12px 16px;
+      border-radius: 14px;
+      background: rgba(79, 43, 121, 0.96);
+      color: #fff;
+      font-size: 14px;
+      font-weight: bold;
+      text-align: center;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.20);
+      z-index: 999;
+    }
+
+    .toast {
+      position: fixed;
+      top: calc(14px + env(safe-area-inset-top));
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(500px, calc(100% - 28px));
+      box-sizing: border-box;
+      padding: 12px 16px;
+      border-radius: 14px;
+      background: #333;
+      color: #fff;
+      font-size: 14px;
+      line-height: 1.5;
+      text-align: center;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.20);
+      z-index: 1000;
+    }
+
+    .toast.success { background: #267a3d; }
+    .toast.error { background: #a92f2f; }
+    .toast.warning { background: #9a6510; }
+
     .hidden { display: none; }
   </style>
 </head>
@@ -506,17 +595,25 @@
       </div>
 
       <div class="footer">
-        龍穎社活動報名與來賓管理系統｜v4 餐食選擇版
+        龍穎社活動報名與來賓管理系統｜v5 即時儲存優化版
       </div>
     </div>
   </div>
+
+  <div id="queueBar" class="queue-bar hidden" role="status" aria-live="polite">
+    <span id="queueBarText">正在儲存...</span>
+  </div>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
   <script>
     const CONFIG = {
       LIFF_ID: '2010401579-60qfBgC0',
       GAS_API_URL: 'https://script.google.com/macros/s/AKfycbwZ-0XcZmi7xy6K1VMgMzXpi6s_XNAGGf_Yjml97nyKZaJufQYfpPeP6PlLxIyYPRojHw/exec',
       // EDM 頁面採 event_id 自動讀圖，例如 edm.html?event_id=E0001 -> assets/edm/E0001.jpg
-      EDM_PAGE_URL: './edm.html'
+      EDM_PAGE_URL: './edm.html',
+      API_TIMEOUT_MS: 45000,
+      SUCCESS_MESSAGE_MS: 2600,
+      FAILED_OPERATION_MAX_AGE_MS: 24 * 60 * 60 * 1000
     };
 
     const state = {
@@ -524,12 +621,24 @@
       profile: null,
       bindingStatus: null,
       events: [],
-      eventMeta: {}
+      eventMeta: {},
+      operations: {},
+      operationQueue: [],
+      queueRunning: false,
+      activeOperation: null,
+      needsFullRefresh: false
     };
 
     const els = {};
+    let toastTimer = null;
 
     window.addEventListener('load', init);
+    window.addEventListener('beforeunload', event => {
+      if (state.queueRunning || state.operationQueue.length > 0) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
+    });
 
     function init() {
       cacheElements();
@@ -551,7 +660,10 @@
         'memberSelect',
         'submitBtn',
         'cancelBtn',
-        'reloadBtn'
+        'reloadBtn',
+        'queueBar',
+        'queueBarText',
+        'toast'
       ].forEach(id => {
         els[id] = document.getElementById(id);
       });
@@ -561,7 +673,8 @@
       els.searchInput.addEventListener('input', renderMemberOptions);
       els.submitBtn.addEventListener('click', submitBindingRequest);
       els.cancelBtn.addEventListener('click', cancelBindingRequest);
-      els.reloadBtn.addEventListener('click', main);
+      els.reloadBtn.addEventListener('click', refreshCurrentView);
+      els.eventsContent.addEventListener('click', handleEventAreaClick);
     }
 
     async function main() {
@@ -573,7 +686,6 @@
         if (!CONFIG.GAS_API_URL) throw new Error('尚未設定 GAS_API_URL。');
 
         await liff.init({ liffId: CONFIG.LIFF_ID });
-
         showLoading('正在確認 LINE 登入狀態...');
 
         if (!liff.isLoggedIn()) {
@@ -582,11 +694,8 @@
         }
 
         state.profile = await liff.getProfile();
-
         showLoading('正在確認身分綁定狀態...');
 
-        // v3.5 優化：先只查綁定狀態。
-        // 已綁定或待審核者不需要每次都載入全部社友名單。
         const statusResult = await callGasApi('check_binding_status', {});
         if (!statusResult.success) throw new Error(statusResult.error || '取得綁定狀態失敗。');
 
@@ -606,7 +715,7 @@
           state.bindingStatus = memberResult.bindingStatus || state.bindingStatus;
         }
 
-        renderByBindingStatus();
+        await renderByBindingStatus();
 
       } catch (error) {
         showStatus('系統錯誤：' + error.message, 'error');
@@ -616,7 +725,23 @@
       }
     }
 
-    function renderByBindingStatus() {
+    async function refreshCurrentView() {
+      if (isQueueBusy()) {
+        showToast('目前仍有操作正在儲存，請稍候完成後再重新整理。', 'warning');
+        return;
+      }
+
+      const status = state.bindingStatus && state.bindingStatus.status;
+
+      if (status === 'active') {
+        await loadMyEvents({ showGlobalLoading: true });
+        return;
+      }
+
+      await main();
+    }
+
+    async function renderByBindingStatus() {
       hide(els.bindForm, els.pendingBox, els.eventsBox);
       show(els.reloadBox);
 
@@ -631,7 +756,7 @@
         );
 
         show(els.eventsBox);
-        loadMyEvents();
+        await loadMyEvents({ showGlobalLoading: true });
         return;
       }
 
@@ -724,12 +849,15 @@
       });
     }
 
-    async function loadMyEvents() {
+    async function loadMyEvents(options = {}) {
+      const showGlobalLoading = Boolean(options.showGlobalLoading);
       els.eventsContent.innerHTML = '正在讀取近期活動與您的來賓資料...';
       hide(els.summaryBox);
 
       try {
-        showLoading('正在整理您的活動與來賓資料...');
+        if (showGlobalLoading) {
+          showLoading('正在整理您的活動與來賓資料...');
+        }
 
         const result = await callGasApi('get_my_events', {});
         if (!result.success) throw new Error(result.message || result.error || '取得活動資料失敗。');
@@ -738,10 +866,13 @@
         state.eventMeta = result.meta || {};
         renderSummary();
         renderEvents();
+        restoreFailedOperations();
 
       } catch (error) {
         els.eventsContent.innerHTML = '<div class="status-box status-error">活動資料載入失敗：' + escapeHtml(error.message) + '</div>';
         console.error(error);
+      } finally {
+        if (showGlobalLoading) hideLoading();
       }
     }
 
@@ -801,9 +932,19 @@
         return;
       }
 
-      els.eventsContent.innerHTML = state.events.map(event => `
-        <div class="event-card" data-event-id="${escapeAttr(event.event_id)}">
+      els.eventsContent.innerHTML = state.events.map(buildEventCardHtml).join('');
+    }
+
+    function buildEventCardHtml(event) {
+      const operation = state.operations[event.event_id];
+      const busy = operation && (operation.phase === 'queued' || operation.phase === 'saving');
+
+      return `
+        <div class="event-card ${busy ? 'is-busy' : ''}" data-event-id="${escapeAttr(event.event_id)}" aria-busy="${busy ? 'true' : 'false'}">
           <div class="event-title">${escapeHtml(event.event_name)}</div>
+          <div class="operation-status-slot" data-operation-status-event-id="${escapeAttr(event.event_id)}">
+            ${buildOperationStatusHtml(event.event_id)}
+          </div>
           <div class="event-status">${escapeHtml(getEventStatusLabel(event.status))}</div>
 
           <div class="event-meta">
@@ -823,10 +964,41 @@
           ${buildEventDetails(event)}
           ${buildGuestManager(event)}
         </div>
-      `).join('');
+      `;
+    }
 
-      bindEventButtons();
-      bindGuestButtons();
+    function buildOperationStatusHtml(eventId) {
+      const operation = state.operations[eventId];
+      if (!operation) return '';
+
+      const message = escapeHtml(operation.message || '');
+
+      if (operation.phase === 'queued') {
+        return `<div class="operation-status queued">⏳ ${message || '已加入儲存佇列，請稍候...'}</div>`;
+      }
+
+      if (operation.phase === 'saving') {
+        return `<div class="operation-status saving">⏳ ${message || '正在儲存，您可以繼續操作其他活動。'}</div>`;
+      }
+
+      if (operation.phase === 'success') {
+        return `<div class="operation-status success">✓ ${message || '已完成儲存'}</div>`;
+      }
+
+      if (operation.phase === 'error') {
+        const retryButton = operation.retryable === false
+          ? ''
+          : `<button class="secondary retry-operation-btn" data-event-id="${escapeAttr(eventId)}">重新送出</button>`;
+
+        return `
+          <div class="operation-status error">
+            <div>⚠ ${message || '操作尚未完成，請重新送出。'}</div>
+            ${retryButton}
+          </div>
+        `;
+      }
+
+      return '';
     }
 
     function buildEventActions(event) {
@@ -943,9 +1115,7 @@
             ${event.announcement_text ? '<br>公告：' + escapeHtml(event.announcement_text) : ''}
 
             <div class="detail-actions">
-              <a class="detail-link primary" href="${escapeAttr(edmUrl)}">
-                查看活動 EDM
-              </a>
+              <a class="detail-link primary" href="${escapeAttr(edmUrl)}">查看活動 EDM</a>
             </div>
           </div>
         </details>
@@ -956,65 +1126,6 @@
       const safeEventId = String(eventId || '').trim().toUpperCase();
       const separator = CONFIG.EDM_PAGE_URL.includes('?') ? '&' : '?';
       return CONFIG.EDM_PAGE_URL + separator + 'event_id=' + encodeURIComponent(safeEventId);
-    }
-
-    function bindEventButtons() {
-      els.eventsContent.querySelectorAll('.event-action-btn').forEach(button => {
-        button.addEventListener('click', async () => {
-          await submitMemberRegistration(button.getAttribute('data-event-id'), button.getAttribute('data-status'));
-        });
-      });
-
-      els.eventsContent.querySelectorAll('.member-meal-update-btn').forEach(button => {
-        button.addEventListener('click', async () => {
-          await updateMemberMeal(button.getAttribute('data-event-id'));
-        });
-      });
-    }
-
-    async function submitMemberRegistration(eventId, status) {
-      const event = findEvent(eventId);
-      const eventName = event ? event.event_name : eventId;
-      const mealPayload = status === '參加' ? getMemberMealPayload(eventId) : {};
-
-      const confirmed = confirm(
-        status === '已取消'
-          ? '確定要取消報名？\n\n活動：' + eventName
-          : '確定要送出活動狀態？\n\n活動：' + eventName + '\n狀態：' + status +
-            (status === '參加' ? '\n餐食：' + buildMealDisplayText(mealPayload.meal_preference, mealPayload.meal_note) : '')
-      );
-
-      if (!confirmed) return;
-
-      await runAction('正在更新活動狀態...', async () => {
-        const result = await callGasApi('submit_member_registration', { event_id: eventId, status, ...mealPayload });
-        if (!result.success) throw new Error(result.message || result.error || '更新失敗。');
-
-        alert(result.message || '已更新活動狀態。');
-        await loadMyEvents();
-      });
-    }
-
-    async function updateMemberMeal(eventId) {
-      const event = findEvent(eventId);
-      const eventName = event ? event.event_name : eventId;
-      const mealPayload = getMemberMealPayload(eventId);
-
-      const confirmed = confirm(
-        '確定要更新本人餐食？\n\n' +
-        '活動：' + eventName + '\n' +
-        '餐食：' + buildMealDisplayText(mealPayload.meal_preference, mealPayload.meal_note)
-      );
-
-      if (!confirmed) return;
-
-      await runAction('正在更新本人餐食...', async () => {
-        const result = await callGasApi('update_member_meal', { event_id: eventId, ...mealPayload });
-        if (!result.success) throw new Error(result.message || result.error || '更新餐食失敗。');
-
-        alert(result.message || '已更新餐食。');
-        await loadMyEvents();
-      });
     }
 
     function buildGuestManager(event) {
@@ -1035,9 +1146,7 @@
               <input class="guest-note-input" type="text" placeholder="餐食備註，例如：不吃牛、蛋奶素、全素" data-guest-meal-note-event-id="${escapeAttr(event.event_id)}">
             </div>
             <div class="mini-note">新增來賓時請同步選擇餐食。若無特殊需求，備註可留空。</div>
-            <button class="primary add-guest-btn" data-event-id="${escapeAttr(event.event_id)}">
-              新增來賓
-            </button>
+            <button class="primary add-guest-btn" data-event-id="${escapeAttr(event.event_id)}">新增來賓</button>
           </div>
         `
         : `<div class="mini-note">${escapeHtml(event.add_guest_message || '此活動目前不可新增來賓。')}</div>`;
@@ -1078,9 +1187,7 @@
                 <button class="secondary update-guest-meal-btn"
                   data-event-id="${escapeAttr(event.event_id)}"
                   data-guest-id="${escapeAttr(guest.guest_id)}"
-                  data-guest-name="${escapeAttr(guest.guest_name)}">
-                  修改餐食
-                </button>
+                  data-guest-name="${escapeAttr(guest.guest_name)}">修改餐食</button>
               </div>
             </div>
           `
@@ -1091,9 +1198,7 @@
             <button class="danger cancel-guest-btn"
               data-event-id="${escapeAttr(event.event_id)}"
               data-guest-id="${escapeAttr(guest.guest_id)}"
-              data-guest-name="${escapeAttr(guest.guest_name)}">
-              取消
-            </button>
+              data-guest-name="${escapeAttr(guest.guest_name)}">取消</button>
           `
           : '';
 
@@ -1104,41 +1209,115 @@
               <div class="mini-note">餐食：${escapeHtml(mealText)}</div>
               ${mealEditor}
             </div>
-            <div class="guest-actions">
-              ${cancelButton}
-            </div>
+            <div class="guest-actions">${cancelButton}</div>
           </div>
         `;
       }).join('');
     }
 
-    function bindGuestButtons() {
-      els.eventsContent.querySelectorAll('.add-guest-btn').forEach(button => {
-        button.addEventListener('click', async () => addGuest(button.getAttribute('data-event-id')));
-      });
+    function handleEventAreaClick(clickEvent) {
+      const button = clickEvent.target.closest('button');
+      if (!button || button.disabled) return;
 
-      els.eventsContent.querySelectorAll('.update-guest-meal-btn').forEach(button => {
-        button.addEventListener('click', async () => {
-          await updateGuestMeal(
-            button.getAttribute('data-event-id'),
-            button.getAttribute('data-guest-id'),
-            button.getAttribute('data-guest-name')
-          );
-        });
-      });
+      if (button.classList.contains('event-action-btn')) {
+        submitMemberRegistration(
+          button.getAttribute('data-event-id'),
+          button.getAttribute('data-status')
+        );
+        return;
+      }
 
-      els.eventsContent.querySelectorAll('.cancel-guest-btn').forEach(button => {
-        button.addEventListener('click', async () => {
-          await cancelGuest(
-            button.getAttribute('data-event-id'),
-            button.getAttribute('data-guest-id'),
-            button.getAttribute('data-guest-name')
-          );
-        });
+      if (button.classList.contains('member-meal-update-btn')) {
+        updateMemberMeal(button.getAttribute('data-event-id'));
+        return;
+      }
+
+      if (button.classList.contains('add-guest-btn')) {
+        addGuest(button.getAttribute('data-event-id'));
+        return;
+      }
+
+      if (button.classList.contains('update-guest-meal-btn')) {
+        updateGuestMeal(
+          button.getAttribute('data-event-id'),
+          button.getAttribute('data-guest-id'),
+          button.getAttribute('data-guest-name')
+        );
+        return;
+      }
+
+      if (button.classList.contains('cancel-guest-btn')) {
+        cancelGuest(
+          button.getAttribute('data-event-id'),
+          button.getAttribute('data-guest-id'),
+          button.getAttribute('data-guest-name')
+        );
+        return;
+      }
+
+      if (button.classList.contains('retry-operation-btn')) {
+        retryOperation(button.getAttribute('data-event-id'));
+      }
+    }
+
+    function submitMemberRegistration(eventId, status) {
+      if (isEventBusy(eventId)) return;
+
+      const event = findEvent(eventId);
+      const eventName = event ? event.event_name : eventId;
+      const mealPayload = status === '參加' ? getMemberMealPayload(eventId) : {};
+
+      const confirmed = confirm(
+        status === '已取消'
+          ? '確定要取消報名？\n\n活動：' + eventName
+          : '確定要送出活動狀態？\n\n活動：' + eventName + '\n狀態：' + status +
+            (status === '參加' ? '\n餐食：' + buildMealDisplayText(mealPayload.meal_preference, mealPayload.meal_note) : '')
+      );
+
+      if (!confirmed) return;
+
+      enqueueOperation({
+        id: createRequestId(),
+        eventId,
+        action: 'submit_member_registration',
+        payload: { event_id: eventId, status, ...mealPayload },
+        waitingMessage: '活動狀態等待儲存...',
+        savingMessage: '正在儲存活動狀態，您可以繼續操作其他活動。',
+        fallbackSuccessMessage: status === '參加' ? '已完成報名' : '已完成狀態更新',
+        createdAt: Date.now()
       });
     }
 
-    async function addGuest(eventId) {
+    function updateMemberMeal(eventId) {
+      if (isEventBusy(eventId)) return;
+
+      const event = findEvent(eventId);
+      const eventName = event ? event.event_name : eventId;
+      const mealPayload = getMemberMealPayload(eventId);
+
+      const confirmed = confirm(
+        '確定要更新本人餐食？\n\n' +
+        '活動：' + eventName + '\n' +
+        '餐食：' + buildMealDisplayText(mealPayload.meal_preference, mealPayload.meal_note)
+      );
+
+      if (!confirmed) return;
+
+      enqueueOperation({
+        id: createRequestId(),
+        eventId,
+        action: 'update_member_meal',
+        payload: { event_id: eventId, ...mealPayload },
+        waitingMessage: '餐食修改等待儲存...',
+        savingMessage: '正在更新本人餐食...',
+        fallbackSuccessMessage: '已完成餐食更新',
+        createdAt: Date.now()
+      });
+    }
+
+    function addGuest(eventId) {
+      if (isEventBusy(eventId)) return;
+
       const input = queryByData('guest-input-event-id', eventId);
       const mealSelect = queryByData('guest-meal-select-event-id', eventId);
       const mealNoteInput = queryByData('guest-meal-note-event-id', eventId);
@@ -1167,16 +1346,21 @@
 
       if (!confirmed) return;
 
-      await runAction('正在新增來賓...', async () => {
-        const result = await callGasApi('add_guest_registration', { event_id: eventId, guest_name: guestName, ...mealPayload });
-        if (!result.success) throw new Error(result.message || result.error || '新增來賓失敗。');
-
-        alert(result.message || '已新增來賓。');
-        await loadMyEvents();
+      enqueueOperation({
+        id: createRequestId(),
+        eventId,
+        action: 'add_guest_registration',
+        payload: { event_id: eventId, guest_name: guestName, ...mealPayload },
+        waitingMessage: '來賓資料等待儲存...',
+        savingMessage: '正在新增來賓...',
+        fallbackSuccessMessage: '已新增來賓：' + guestName,
+        createdAt: Date.now()
       });
     }
 
-    async function updateGuestMeal(eventId, guestId, guestName) {
+    function updateGuestMeal(eventId, guestId, guestName) {
+      if (isEventBusy(eventId)) return;
+
       const mealSelect = queryByData('guest-meal-select-guest-id', guestId);
       const mealNoteInput = queryByData('guest-meal-note-guest-id', guestId);
       const mealPayload = {
@@ -1192,45 +1376,514 @@
 
       if (!confirmed) return;
 
-      await runAction('正在更新來賓餐食...', async () => {
-        const result = await callGasApi('update_guest_meal', { guest_id: guestId, ...mealPayload });
-        if (!result.success) throw new Error(result.message || result.error || '更新來賓餐食失敗。');
-
-        alert(result.message || '已更新來賓餐食。');
-        await loadMyEvents();
+      enqueueOperation({
+        id: createRequestId(),
+        eventId,
+        action: 'update_guest_meal',
+        payload: { guest_id: guestId, ...mealPayload },
+        waitingMessage: '來賓餐食等待儲存...',
+        savingMessage: '正在更新來賓餐食...',
+        fallbackSuccessMessage: '已完成來賓餐食更新',
+        createdAt: Date.now()
       });
     }
 
-    async function cancelGuest(eventId, guestId, guestName) {
+    function cancelGuest(eventId, guestId, guestName) {
+      if (isEventBusy(eventId)) return;
+
       const confirmed = confirm('確定要取消這位來賓？\n\n來賓：' + guestName);
       if (!confirmed) return;
 
-      await runAction('正在取消來賓...', async () => {
-        const result = await callGasApi('cancel_guest_registration', { guest_id: guestId });
-        if (!result.success) throw new Error(result.message || result.error || '取消來賓失敗。');
-
-        alert(result.message || '已取消來賓。');
-        await loadMyEvents();
+      enqueueOperation({
+        id: createRequestId(),
+        eventId,
+        action: 'cancel_guest_registration',
+        payload: { guest_id: guestId },
+        waitingMessage: '取消來賓等待儲存...',
+        savingMessage: '正在取消來賓...',
+        fallbackSuccessMessage: '已取消來賓：' + guestName,
+        createdAt: Date.now()
       });
+    }
+
+    function enqueueOperation(operation, options = {}) {
+      if (!operation || !operation.eventId || !operation.action) return;
+
+      if (isEventBusy(operation.eventId)) {
+        showToast('這場活動仍在儲存中，請稍候完成。', 'warning');
+        return;
+      }
+
+      if (!options.retry) {
+        removeFailedOperationsForEvent(operation.eventId);
+      }
+
+      state.operations[operation.eventId] = {
+        phase: 'queued',
+        message: operation.waitingMessage || '等待儲存...',
+        operation
+      };
+
+      setEventCardBusy(operation.eventId, true);
+      renderOperationStatusOnly(operation.eventId);
+      state.operationQueue.push(operation);
+      updateQueueBar();
+      processOperationQueue();
+    }
+
+    async function processOperationQueue() {
+      if (state.queueRunning) return;
+
+      state.queueRunning = true;
+
+      while (state.operationQueue.length > 0) {
+        const operation = state.operationQueue.shift();
+        state.activeOperation = operation;
+
+        state.operations[operation.eventId] = {
+          phase: 'saving',
+          message: operation.savingMessage || '正在儲存...',
+          operation
+        };
+
+        setEventCardBusy(operation.eventId, true);
+        renderOperationStatusOnly(operation.eventId);
+        updateQueueBar();
+
+        try {
+          const result = await callGasApi(operation.action, {
+            ...operation.payload,
+            request_id: operation.id
+          });
+
+          if (!result.success) {
+            if (result.event) {
+              replaceEventInState(result.event);
+              renderSummary();
+              renderSingleEvent(operation.eventId);
+            }
+
+            const apiError = new Error(result.message || result.error || '操作失敗。');
+            apiError.code = result.code || '';
+            throw apiError;
+          }
+
+          state.operations[operation.eventId] = {
+            phase: 'success',
+            message: result.message || operation.fallbackSuccessMessage || '已完成儲存',
+            operation
+          };
+
+          if (result.event) {
+            replaceEventInState(result.event);
+          } else {
+            patchEventFromLegacyResult(operation, result);
+            state.needsFullRefresh = true;
+          }
+
+          renderSummary();
+          renderSingleEvent(operation.eventId);
+          removeFailedOperation(operation.id);
+          showToast(result.message || operation.fallbackSuccessMessage || '已完成儲存', 'success');
+          scheduleOperationStatusClear(operation.eventId, operation.id);
+
+        } catch (error) {
+          const message = error.message || '操作尚未完成，請重新送出。';
+          const retryable = isRetryableOperationError(error);
+
+          state.operations[operation.eventId] = {
+            phase: 'error',
+            message,
+            retryable,
+            operation
+          };
+
+          if (retryable) {
+            persistFailedOperation(operation, message);
+          } else {
+            removeFailedOperation(operation.id);
+            scheduleOperationStatusClear(operation.eventId, operation.id, 6500);
+          }
+
+          setEventCardBusy(operation.eventId, false);
+          renderOperationStatusOnly(operation.eventId);
+          showToast(message, 'error');
+          console.error(error);
+        } finally {
+          setEventCardBusy(operation.eventId, false);
+          state.activeOperation = null;
+          updateQueueBar();
+        }
+      }
+
+      state.queueRunning = false;
+      updateQueueBar();
+
+      if (state.needsFullRefresh && !hasFailedOperations()) {
+        state.needsFullRefresh = false;
+        await loadMyEvents({ showGlobalLoading: false });
+      }
+    }
+
+    function retryOperation(eventId) {
+      const operationState = state.operations[eventId];
+      const operation = operationState && operationState.operation;
+
+      if (!operation) {
+        showToast('找不到可重新送出的操作，請重新整理活動資料。', 'warning');
+        return;
+      }
+
+      delete state.operations[eventId];
+      renderOperationStatusOnly(eventId);
+      enqueueOperation(operation, { retry: true });
+    }
+
+    function replaceEventInState(updatedEvent) {
+      const index = state.events.findIndex(event => event.event_id === updatedEvent.event_id);
+
+      if (index >= 0) {
+        state.events[index] = updatedEvent;
+      }
+    }
+
+    function patchEventFromLegacyResult(operation, result) {
+      const event = findEvent(operation.eventId);
+      if (!event) return;
+
+      if (operation.action === 'submit_member_registration' && result.registration) {
+        const oldStatus = event.my_registration_status || '未回覆';
+        const newStatus = result.registration.status || operation.payload.status;
+
+        if (oldStatus !== '參加' && newStatus === '參加') {
+          event.member_count = Number(event.member_count || 0) + 1;
+          event.total_count = Number(event.total_count || 0) + 1;
+        }
+
+        if (oldStatus === '參加' && newStatus !== '參加') {
+          event.member_count = Math.max(0, Number(event.member_count || 0) - 1);
+          event.total_count = Math.max(0, Number(event.total_count || 0) - 1);
+        }
+
+        event.my_registration_status = newStatus;
+        if (newStatus === '參加') {
+          event.my_meal_preference = result.registration.meal_preference || operation.payload.meal_preference || '';
+          event.my_meal_note = result.registration.meal_note || operation.payload.meal_note || '';
+        }
+      }
+
+      if (operation.action === 'update_member_meal') {
+        event.my_meal_preference = operation.payload.meal_preference || '';
+        event.my_meal_note = operation.payload.meal_note || '';
+      }
+
+      if (operation.action === 'add_guest_registration' && result.guest) {
+        event.my_guests = Array.isArray(event.my_guests) ? event.my_guests : [];
+        event.my_guests.push(result.guest);
+        event.my_guest_count = event.my_guests.length;
+        event.guest_count = Number(event.guest_count || 0) + 1;
+        event.total_count = Number(event.total_count || 0) + 1;
+      }
+
+      if (operation.action === 'update_guest_meal' && result.guest) {
+        const guest = (event.my_guests || []).find(item => item.guest_id === result.guest.guest_id);
+        if (guest) {
+          guest.meal_preference = result.guest.meal_preference;
+          guest.meal_note = result.guest.meal_note;
+        }
+      }
+
+      if (operation.action === 'cancel_guest_registration' && result.guest) {
+        event.my_guests = (event.my_guests || []).filter(item => item.guest_id !== result.guest.guest_id);
+        event.my_guest_count = event.my_guests.length;
+        event.guest_count = Math.max(0, Number(event.guest_count || 0) - 1);
+        event.total_count = Math.max(0, Number(event.total_count || 0) - 1);
+      }
+    }
+
+    function renderSingleEvent(eventId) {
+      const event = findEvent(eventId);
+      const oldCard = getEventCard(eventId);
+
+      if (!event || !oldCard) return;
+
+      const details = oldCard.querySelector('details.event-details');
+      const detailsWasOpen = Boolean(details && details.open);
+      oldCard.outerHTML = buildEventCardHtml(event);
+
+      if (detailsWasOpen) {
+        const newCard = getEventCard(eventId);
+        const newDetails = newCard && newCard.querySelector('details.event-details');
+        if (newDetails) newDetails.open = true;
+      }
+    }
+
+    function renderOperationStatusOnly(eventId) {
+      const slot = els.eventsContent.querySelector(
+        `[data-operation-status-event-id="${cssEscape(eventId)}"]`
+      );
+
+      if (slot) {
+        slot.innerHTML = buildOperationStatusHtml(eventId);
+      }
+    }
+
+    function scheduleOperationStatusClear(eventId, operationId, durationMs) {
+      window.setTimeout(() => {
+        const current = state.operations[eventId];
+
+        if (current && current.operation && current.operation.id === operationId &&
+            (current.phase === 'success' || (current.phase === 'error' && current.retryable === false))) {
+          delete state.operations[eventId];
+          renderOperationStatusOnly(eventId);
+        }
+      }, durationMs || CONFIG.SUCCESS_MESSAGE_MS);
+    }
+
+    function isRetryableOperationError(error) {
+      const nonRetryableCodes = new Set([
+        'not_bound',
+        'event_not_available',
+        'event_full',
+        'meal_update_not_available',
+        'guest_not_allowed',
+        'guest_not_available',
+        'duplicate_guest',
+        'guest_limit_reached',
+        'guest_meal_update_not_available',
+        'guest_cancel_not_available'
+      ]);
+
+      return !nonRetryableCodes.has(String(error && error.code || ''));
+    }
+
+    function setEventCardBusy(eventId, busy) {
+      const card = getEventCard(eventId);
+      if (!card) return;
+
+      card.classList.toggle('is-busy', busy);
+      card.setAttribute('aria-busy', busy ? 'true' : 'false');
+
+      card.querySelectorAll('button, input, select').forEach(control => {
+        if (busy) {
+          if (!Object.prototype.hasOwnProperty.call(control.dataset, 'wasDisabled')) {
+            control.dataset.wasDisabled = control.disabled ? '1' : '0';
+          }
+          control.disabled = true;
+        } else if (Object.prototype.hasOwnProperty.call(control.dataset, 'wasDisabled')) {
+          control.disabled = control.dataset.wasDisabled === '1';
+          delete control.dataset.wasDisabled;
+        }
+      });
+    }
+
+    function getEventCard(eventId) {
+      return els.eventsContent.querySelector(
+        `.event-card[data-event-id="${cssEscape(eventId)}"]`
+      );
+    }
+
+    function isEventBusy(eventId) {
+      const operation = state.operations[eventId];
+      return Boolean(operation && (operation.phase === 'queued' || operation.phase === 'saving'));
+    }
+
+    function isQueueBusy() {
+      return state.queueRunning || state.operationQueue.length > 0 || Boolean(state.activeOperation);
+    }
+
+    function updateQueueBar() {
+      const waitingCount = state.operationQueue.length + (state.activeOperation ? 1 : 0);
+      const busy = waitingCount > 0;
+
+      if (busy) {
+        els.queueBarText.textContent = waitingCount === 1
+          ? '正在儲存 1 項操作，請稍候...'
+          : '正在依序儲存 ' + waitingCount + ' 項操作，您可以繼續查看其他活動。';
+        show(els.queueBar);
+      } else {
+        hide(els.queueBar);
+      }
+
+      els.reloadBtn.disabled = busy;
+    }
+
+    function showToast(message, type) {
+      if (toastTimer) window.clearTimeout(toastTimer);
+
+      els.toast.textContent = message || '';
+      els.toast.className = 'toast';
+      if (type) els.toast.classList.add(type);
+      show(els.toast);
+
+      toastTimer = window.setTimeout(() => {
+        hide(els.toast);
+      }, type === 'error' ? 5200 : 3000);
+    }
+
+    function createRequestId() {
+      if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+        return window.crypto.randomUUID();
+      }
+
+      return 'REQ-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+    }
+
+    function getFailedStorageKey() {
+      const memberId = state.bindingStatus && state.bindingStatus.member_id;
+      return memberId ? 'longying_failed_operations_v1_' + memberId : '';
+    }
+
+    function readFailedOperations() {
+      const key = getFailedStorageKey();
+      if (!key) return [];
+
+      try {
+        const list = JSON.parse(localStorage.getItem(key) || '[]');
+        return Array.isArray(list) ? list : [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function writeFailedOperations(list) {
+      const key = getFailedStorageKey();
+      if (!key) return;
+
+      try {
+        localStorage.setItem(key, JSON.stringify(list || []));
+      } catch (error) {
+        console.warn('無法保存失敗操作：', error);
+      }
+    }
+
+    function persistFailedOperation(operation, errorMessage) {
+      const list = readFailedOperations().filter(item => item.id !== operation.id);
+      list.push({
+        ...operation,
+        errorMessage: errorMessage || '',
+        failedAt: Date.now()
+      });
+      writeFailedOperations(list);
+    }
+
+    function removeFailedOperation(operationId) {
+      writeFailedOperations(readFailedOperations().filter(item => item.id !== operationId));
+    }
+
+    function removeFailedOperationsForEvent(eventId) {
+      writeFailedOperations(readFailedOperations().filter(item => item.eventId !== eventId));
+    }
+
+    function restoreFailedOperations() {
+      const now = Date.now();
+      const visibleEventIds = new Set(state.events.map(event => event.event_id));
+      const valid = readFailedOperations().filter(operation => {
+        const time = Number(operation.failedAt || operation.createdAt || 0);
+        if (!visibleEventIds.has(operation.eventId) ||
+            time <= 0 ||
+            now - time > CONFIG.FAILED_OPERATION_MAX_AGE_MS) {
+          return false;
+        }
+
+        const event = findEvent(operation.eventId);
+        return !isOperationAlreadyApplied(operation, event);
+      });
+
+      writeFailedOperations(valid);
+
+      valid.forEach(operation => {
+        if (isEventBusy(operation.eventId)) return;
+
+        state.operations[operation.eventId] = {
+          phase: 'error',
+          message: operation.errorMessage || '上次操作可能尚未完成，請重新送出或重新整理確認。',
+          retryable: true,
+          operation
+        };
+        renderOperationStatusOnly(operation.eventId);
+      });
+    }
+
+    function isOperationAlreadyApplied(operation, event) {
+      if (!operation || !event) return false;
+      const payload = operation.payload || {};
+
+      if (operation.action === 'submit_member_registration') {
+        const sameStatus = String(event.my_registration_status || '') === String(payload.status || '');
+        if (!sameStatus) return false;
+
+        if (payload.status === '參加') {
+          return normalizeMealPreference(event.my_meal_preference) === normalizeMealPreference(payload.meal_preference) &&
+                 String(event.my_meal_note || '').trim() === String(payload.meal_note || '').trim();
+        }
+
+        return true;
+      }
+
+      if (operation.action === 'update_member_meal') {
+        return normalizeMealPreference(event.my_meal_preference) === normalizeMealPreference(payload.meal_preference) &&
+               String(event.my_meal_note || '').trim() === String(payload.meal_note || '').trim();
+      }
+
+      if (operation.action === 'add_guest_registration') {
+        return (event.my_guests || []).some(guest => {
+          return String(guest.guest_name || '').trim() === String(payload.guest_name || '').trim() &&
+                 normalizeMealPreference(guest.meal_preference) === normalizeMealPreference(payload.meal_preference) &&
+                 String(guest.meal_note || '').trim() === String(payload.meal_note || '').trim();
+        });
+      }
+
+      if (operation.action === 'update_guest_meal') {
+        const guest = (event.my_guests || []).find(item => item.guest_id === payload.guest_id);
+        return Boolean(guest) &&
+               normalizeMealPreference(guest.meal_preference) === normalizeMealPreference(payload.meal_preference) &&
+               String(guest.meal_note || '').trim() === String(payload.meal_note || '').trim();
+      }
+
+      if (operation.action === 'cancel_guest_registration') {
+        return !(event.my_guests || []).some(item => item.guest_id === payload.guest_id);
+      }
+
+      return false;
+    }
+
+    function hasFailedOperations() {
+      return Object.values(state.operations).some(operation => operation && operation.phase === 'error');
     }
 
     async function callGasApi(action, payload) {
       const accessToken = liff.getAccessToken();
       if (!accessToken) throw new Error('無法取得 LINE access token，請重新開啟頁面。');
 
-      const response = await fetch(CONFIG.GAS_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action, access_token: accessToken, ...payload }),
-        redirect: 'follow'
-      });
-
-      const text = await response.text();
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timeoutId = controller
+        ? window.setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT_MS)
+        : null;
 
       try {
-        return JSON.parse(text);
+        const response = await fetch(CONFIG.GAS_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action, access_token: accessToken, ...payload }),
+          redirect: 'follow',
+          signal: controller ? controller.signal : undefined
+        });
+
+        const text = await response.text();
+
+        try {
+          return JSON.parse(text);
+        } catch (error) {
+          throw new Error('GAS 回傳內容不是 JSON：' + text.slice(0, 200));
+        }
       } catch (error) {
-        throw new Error('GAS 回傳內容不是 JSON：' + text.slice(0, 200));
+        if (error && error.name === 'AbortError') {
+          throw new Error('連線逾時。此操作可能仍已送出，請按「重新送出」或重新整理活動資料確認。');
+        }
+        throw error;
+      } finally {
+        if (timeoutId) window.clearTimeout(timeoutId);
       }
     }
 
@@ -1251,7 +1904,7 @@
 
     function resetView() {
       show(els.loading);
-      hide(els.statusBox, els.bindForm, els.pendingBox, els.eventsBox, els.reloadBox);
+      hide(els.statusBox, els.bindForm, els.pendingBox, els.eventsBox, els.reloadBox, els.queueBar, els.toast);
     }
 
     function showLoading(message) {
